@@ -1,0 +1,96 @@
+# format: github.com/xhanio/gopro/pkg/types/config.go
+
+product: example
+# model:
+# version: develop
+# domain:
+# project: github.com/xhanio/gopro
+
+default:
+  binary_src: build/binary
+  binary_tgt: bin/
+  binary_build_env:
+    # - CGO_ENABLED=0
+    # - GOOS=linux
+    # - GOARCH=amd64
+  binary_build_args:
+    - -v
+    - -gcflags
+    - '-N -l'
+    - -ldflags
+    - '-s'
+    # - -ldflags
+    # - '-extldflags "-static"'
+  image_build_src: build/image
+  image_prefix: localhost:5000
+  config_src: env/default/config
+  config_tgt: dist/default/config
+  kubernetes_src: env/default/kubernetes
+  kubernetes_tgt: dist/default/kubernetes
+
+  binaries:
+    - demo
+  images:
+    - demo
+  configs:
+    - demo
+  kubernetes_templates:
+    - demo
+
+env:
+  local:
+    binary_build_env:
+      - CGO_ENABLED=1
+
+    config_src: env/local/config
+    config_tgt: dist/local/config
+
+    kubernetes_src: env/local/kubernetes
+    kubernetes_tgt: dist/local/kubernetes
+
+  prod:
+    binary_build_env:
+      - CGO_ENABLED=0
+      - GOOS=linux
+      - GOARCH=amd64
+    binary_build_args:
+      - -v
+      - -gcflags
+      - '-N -l'
+      - -ldflags
+      - '-s'
+      - -ldflags
+      - '-extldflags "-static"'
+
+    config_src: env/prod/config
+    config_tgt: dist/prod/config
+
+    kubernetes_src: env/prod/kubernetes
+    kubernetes_tgt: dist/prod/kubernetes
+
+build:
+  binaries:
+    - name: demo
+      config_dir: /etc/demo
+
+  images:
+    - name: img
+      build_from: postgres:13.21-alpine3.21
+    - name: demo
+      base: ubuntu:22.04 # use $img here to apply img as base
+
+generate:
+  configs:
+    - name: demo
+      files:
+        - cert/*
+        - sql/*.up.sql
+        - sql/*.down.sql
+        - config.json
+        - secret.env #
+
+  kubernetes:
+    - name: demo
+      # files:
+      #   - deployment.yaml
+      #   - configmap.yaml
