@@ -78,6 +78,7 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVarP(&envName, "environment", "e", "", "select an environment to generate for")
 	root.PersistentFlags().StringVarP(&filter, "filter", "f", ".*", "filter targets by regex")
 
+	root.AddCommand(NewInitCmd())
 	root.AddCommand(NewBuildCmd())
 	root.AddCommand(NewGenerateCmd())
 	return root
