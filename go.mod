@@ -4,8 +4,8 @@ go 1.24.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/denormal/go-gitignore v0.0.0-20180930084346-ae8ad1d07817
 	github.com/fatih/color v1.18.0
+	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00
 	github.com/spf13/cobra v1.9.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/xhanio/framingo v0.0.4
@@ -17,7 +17,6 @@ require (
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.0 // indirect
-	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect

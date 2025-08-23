@@ -10,6 +10,15 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
+type ResourceType string
+
+var (
+	ResourceTypeBinaries   = ResourceType("binaries")
+	ResourceTypeImages     = ResourceType("images")
+	ResourceTypeConfigs    = ResourceType("configs")
+	ResourceTypeKubernetes = ResourceType("kubernetes")
+)
+
 type Config struct {
 	Product  string               `yaml:"product"`
 	Model    string               `yaml:"model"`

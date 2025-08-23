@@ -73,14 +73,16 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	}
 	p.Stdin = os.Stdin
 	buffer := bytes.NewBuffer([]byte{})
-	var w io.Writer
+	var ow, ew io.Writer
 	if print {
-		w = io.MultiWriter(os.Stdout, buffer)
+		ow = io.MultiWriter(os.Stdout, buffer)
+		ew = os.Stderr
 	} else {
-		w = buffer
+		ow = buffer
+		ew = io.Discard
 	}
-	p.Stdout = w
-	p.Stderr = os.Stderr
+	p.Stdout = ow
+	p.Stderr = ew
 	err := p.Run()
 	return buffer.String(), err
 }
