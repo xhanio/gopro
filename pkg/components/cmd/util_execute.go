@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xhanio/gopro/pkg/types/info"
+	"github.com/xhanio/framingo/pkg/types/info"
 )
 
 func executeBuildImage(name, src, image, base string) error {

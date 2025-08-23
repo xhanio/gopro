@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xhanio/gopro/pkg/types/info"
+	"github.com/xhanio/framingo/pkg/types/info"
 )
 
 var (

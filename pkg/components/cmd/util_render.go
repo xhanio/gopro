@@ -13,8 +13,8 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	"github.com/tidwall/gjson"
 
+	"github.com/xhanio/framingo/pkg/types/info"
 	"github.com/xhanio/gopro/pkg/types"
-	"github.com/xhanio/gopro/pkg/types/info"
 )
 
 func funcMap() template.FuncMap {

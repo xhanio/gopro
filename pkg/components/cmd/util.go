@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xhanio/gopro/pkg/types/info"
+	"github.com/xhanio/framingo/pkg/types/info"
 )
 
 func matches(path string, patterns ...string) (bool, error) {
@@ -25,7 +25,7 @@ func matches(path string, patterns ...string) (bool, error) {
 }
 
 func infoString(key string, val any) string {
-	return fmt.Sprintf("-X %s/tool/maketool/pkg/types/info.%s=%v", info.ProjectName, key, val)
+	return fmt.Sprintf("-X github.com/xhanio/framingo/pkg/types/info.%s=%v", key, val)
 }
 
 func injectInfo() []string {
