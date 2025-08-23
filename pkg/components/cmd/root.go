@@ -41,18 +41,15 @@ func NewRootCmd() *cobra.Command {
 			// check if git is available and repository is initialized
 			_, err = execute("git", []string{"--version"}, os.Environ(), false)
 			if err == nil {
-				// git is available, check if current directory is a git repository
-				_, err = execute("git", []string{"rev-parse", "--git-dir"}, os.Environ(), false)
+				// git is available, try to get branch info
+				branch, err := execute("git", []string{"rev-parse", "--abbrev-ref", "HEAD"}, os.Environ(), false)
 				if err == nil {
-					// workdir is a git repo, get git info
-					branch, err := execute("git", []string{"rev-parse", "--abbrev-ref", "HEAD"}, os.Environ(), false)
-					if err == nil {
-						info.GitBranch = strings.Trim(branch, " \n\t")
-					}
-					tag, err := execute("git", []string{"describe", "--tags", "--always"}, os.Environ(), false)
-					if err == nil {
-						info.GitTag = strings.Trim(tag, " \n\t")
-					}
+					info.GitBranch = strings.Trim(branch, " \n\t")
+				}
+				// try to get tag info
+				tag, err := execute("git", []string{"describe", "--tags", "--always"}, os.Environ(), false)
+				if err == nil {
+					info.GitTag = strings.Trim(tag, " \n\t")
 				}
 			}
 
