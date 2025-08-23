@@ -27,13 +27,18 @@ func loadConfig() error {
 	if err != nil {
 		return err
 	}
+	envConf = conf.GetEnv(envName)
+	goModPath := filepath.Join(filepath.Dir(confPath), "go.mod")
+	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+		return nil
+	}
 	if conf.Project == "" {
-		mb, err := os.ReadFile(filepath.Join(filepath.Dir(confPath), "go.mod"))
+		// load module path from go.mod as conf.Project
+		mb, err := os.ReadFile(goModPath)
 		if err != nil {
 			return err
 		}
 		conf.Project = modfile.ModulePath(mb)
 	}
-	envConf = conf.GetEnv(envName)
 	return nil
 }

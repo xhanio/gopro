@@ -21,6 +21,30 @@ func NewInitCmd() *cobra.Command {
 
 func runInitProject(cmd *cobra.Command, args []string) error {
 	titlef("Initializing project directories")
+
+	// Initialize git repository if not already initialized
+	_, err := execute("git", []string{"rev-parse", "--git-dir"}, os.Environ(), false)
+	if err != nil {
+		linef("Initializing git repository")
+		_, err = execute("git", []string{"init"}, os.Environ(), false)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Initialize go module if go.mod doesn't exist
+	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
+		linef("Initializing go module")
+		args := []string{"mod", "init"}
+		if conf.Project != "" {
+			args = append(args, conf.Project)
+		}
+		_, err = execute("go", args, os.Environ(), false)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Create directories from default configuration
 	if err := createEnvDirectories("default", conf.Default); err != nil {
 		return err
