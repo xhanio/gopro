@@ -68,8 +68,8 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	p := exec.Command(cmd, args...)
 	p.Env = os.Environ()
 	p.Env = append(p.Env, env...)
-	if verbose {
-		debugf("env: \n%s", strings.Join(p.Env, "\n"))
+	if len(env) > 0 && verbose {
+		debugf("env: \n%s", strings.Join(env, "\n"))
 	}
 	p.Stdin = os.Stdin
 	buffer := bytes.NewBuffer([]byte{})
