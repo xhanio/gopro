@@ -13,10 +13,11 @@ import (
 type ResourceType string
 
 var (
-	ResourceTypeBinaries   = ResourceType("binaries")
-	ResourceTypeImages     = ResourceType("images")
-	ResourceTypeConfigs    = ResourceType("configs")
-	ResourceTypeKubernetes = ResourceType("kubernetes")
+	ResourceTypeBinaries      = ResourceType("binaries")
+	ResourceTypeImages        = ResourceType("images")
+	ResourceTypeConfigs       = ResourceType("configs")
+	ResourceTypeKubernetes    = ResourceType("kubernetes")
+	ResourceTypeDockerCompose = ResourceType("docker-compose")
 )
 
 type Config struct {
@@ -139,6 +140,9 @@ type EnvConfig struct {
 	KubernetesSrc       string   `yaml:"kubernetes_src,omitempty"`
 	KubernetesTgt       string   `yaml:"kubernetes_tgt,omitempty"`
 	KubernetesTemplates []string `yaml:"kubernetes_templates,omitempty"`
+
+	DockerComposeSrc string `yaml:"docker_compose_src,omitempty"`
+	DockerComposeTgt string `yaml:"docker_compose_tgt,omitempty"`
 }
 
 type GenerateConfig struct {

@@ -58,8 +58,9 @@ Build Docker images:
 
 Generate configuration files:
 ```bash
-./gopro generate config -e local       # Generate config for local env
-./gopro generate kubernetes -e prod    # Generate k8s templates for prod
+./gopro generate config -e local          # Generate config for local env
+./gopro generate kubernetes -e prod       # Generate k8s templates for prod
+./gopro generate docker-compose -e local  # Generate docker-compose.yaml for local env
 ```
 
 ### Global Options

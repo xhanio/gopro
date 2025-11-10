@@ -75,10 +75,11 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 func createEnvDirectories(env string, config types.EnvConfig) error {
 	// create all directory paths from the environment config
 	resources := map[types.ResourceType][]string{
-		types.ResourceTypeBinaries:   {config.BinarySrc, config.BinaryTgt},
-		types.ResourceTypeConfigs:    {config.ConfigSrc, config.ConfigTgt},
-		types.ResourceTypeImages:     {config.ImageBuildSrc},
-		types.ResourceTypeKubernetes: {config.KubernetesSrc, config.KubernetesTgt},
+		types.ResourceTypeBinaries:      {config.BinarySrc, config.BinaryTgt},
+		types.ResourceTypeConfigs:       {config.ConfigSrc, config.ConfigTgt},
+		types.ResourceTypeImages:        {config.ImageBuildSrc},
+		types.ResourceTypeKubernetes:    {config.KubernetesSrc, config.KubernetesTgt},
+		types.ResourceTypeDockerCompose: {config.DockerComposeSrc, config.DockerComposeTgt},
 	}
 	var targets []string
 	for res, dirs := range resources {
@@ -105,6 +106,9 @@ func createEnvDirectories(env string, config types.EnvConfig) error {
 				for _, target := range config.KubernetesTemplates {
 					targets = append(targets, filepath.Join(dir, target))
 				}
+			case types.ResourceTypeDockerCompose:
+				// docker-compose only needs the base directories (src/tgt), no subdirectories
+				continue
 			}
 		}
 	}

@@ -27,6 +27,8 @@ default:
   config_tgt: dist/default/config
   kubernetes_src: env/default/kubernetes
   kubernetes_tgt: dist/default/kubernetes
+  docker_compose_src: env/default/docker-compose
+  docker_compose_tgt: dist/default
 
   binaries:
     - demo
@@ -47,6 +49,9 @@ env:
 
     kubernetes_src: env/local/kubernetes
     kubernetes_tgt: dist/local/kubernetes
+
+    docker_compose_src: env/local/docker-compose
+    docker_compose_tgt: dist/local
 
   prod:
     binary_build_env:

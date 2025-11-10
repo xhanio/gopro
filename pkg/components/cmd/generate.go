@@ -22,6 +22,7 @@ func NewGenerateCmd() *cobra.Command {
 
 	cmd.AddCommand(NewGenerateConfigCmd())
 	cmd.AddCommand(NewGenerateKubernetesCmd())
+	cmd.AddCommand(NewGenerateDockerComposeCmd())
 	return cmd
 }
 
@@ -124,5 +125,50 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+	return nil
+}
+
+func NewGenerateDockerComposeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:  "docker-compose",
+		RunE: runGenerateDockerCompose,
+	}
+	return cmd
+}
+
+func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
+	// determine output directory
+	outputDir := envConf.DockerComposeTgt
+	if outputDir == "" {
+		outputDir = "."
+	}
+
+	// create output directory if needed
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
+	// render default docker-compose template
+	defaultSrc := conf.Default.DockerComposeSrc
+	if defaultSrc != "" {
+		if fi, err := os.Stat(defaultSrc); err == nil && fi.IsDir() {
+			titlef("Generate docker-compose from %s", defaultSrc)
+			if err := render("docker-compose", defaultSrc, outputDir, prefix, nil); err != nil {
+				return err
+			}
+		}
+	}
+
+	// render env-specific docker-compose template
+	envSrc := envConf.DockerComposeSrc
+	if envSrc != "" {
+		if fi, err := os.Stat(envSrc); err == nil && fi.IsDir() {
+			titlef("Generate docker-compose from %s", envSrc)
+			if err := render("docker-compose", envSrc, outputDir, prefix, nil); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
