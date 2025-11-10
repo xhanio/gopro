@@ -8,7 +8,7 @@ import (
 	"github.com/monochromegane/go-gitignore"
 	"github.com/spf13/cobra"
 
-	"github.com/xhanio/framingo/pkg/utils/errors"
+	"github.com/xhanio/errors"
 	"github.com/xhanio/framingo/pkg/utils/sliceutil"
 	"github.com/xhanio/gopro/pkg/types"
 )
