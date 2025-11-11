@@ -22,6 +22,11 @@ func NewInitCmd() *cobra.Command {
 }
 
 func runInitProject(cmd *cobra.Command, args []string) error {
+	// validate that product name is specified
+	if conf.Product == "" {
+		return errors.Newf("product name is required in project.yaml configuration")
+	}
+
 	titlef("initializing project directories")
 
 	// initialize git repository if not already initialized
