@@ -146,8 +146,9 @@ type EnvConfig struct {
 }
 
 type GenerateConfig struct {
-	Configs    []ConfigDefinition     `yaml:"configs"`
-	Kubernetes []KubernetesDefinition `yaml:"kubernetes"`
+	Configs       []ConfigDefinition      `yaml:"configs"`
+	Kubernetes    []KubernetesDefinition  `yaml:"kubernetes"`
+	DockerCompose DockerComposeDefinition `yaml:"docker_compose"`
 }
 
 type ConfigDefinition struct {
@@ -158,6 +159,11 @@ type ConfigDefinition struct {
 
 type KubernetesDefinition struct {
 	Name  string   `yaml:"name"`
+	Src   string   `yaml:"src,omitempty"`
+	Files []string `yaml:"files,omitempty"`
+}
+
+type DockerComposeDefinition struct {
 	Src   string   `yaml:"src,omitempty"`
 	Files []string `yaml:"files,omitempty"`
 }

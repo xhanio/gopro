@@ -148,12 +148,15 @@ func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// get file patterns from configuration
+	patterns := conf.Generate.DockerCompose.Files
+
 	// render default docker-compose template
 	defaultSrc := conf.Default.DockerComposeSrc
 	if defaultSrc != "" {
 		if fi, err := os.Stat(defaultSrc); err == nil && fi.IsDir() {
 			titlef("Generate docker-compose from %s", defaultSrc)
-			if err := render("docker-compose", defaultSrc, outputDir, prefix, nil); err != nil {
+			if err := render("docker-compose", defaultSrc, outputDir, prefix, patterns); err != nil {
 				return err
 			}
 		}
@@ -164,7 +167,7 @@ func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
 	if envSrc != "" {
 		if fi, err := os.Stat(envSrc); err == nil && fi.IsDir() {
 			titlef("Generate docker-compose from %s", envSrc)
-			if err := render("docker-compose", envSrc, outputDir, prefix, nil); err != nil {
+			if err := render("docker-compose", envSrc, outputDir, prefix, patterns); err != nil {
 				return err
 			}
 		}

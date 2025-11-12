@@ -33,6 +33,7 @@ default:
   binaries:
     - demo
   images:
+    - db
     - demo
   configs:
     - demo
@@ -79,7 +80,7 @@ build:
       config_dir: /etc/demo
 
   images:
-    - name: img
+    - name: db
       build_from: postgres:13.21-alpine3.21
     - name: demo
       base: ubuntu:22.04 # use $img here to apply img as base
@@ -89,13 +90,17 @@ generate:
     - name: demo
       files:
         - cert/*
-        - sql/*.up.sql
-        - sql/*.down.sql
+        - migrations/*.up.sql
+        - migrations/*.down.sql
         - config.json
-        - secret.env #
+        - secret.env
 
   kubernetes:
     - name: demo
       # files:
       #   - deployment.yaml
       #   - configmap.yaml
+
+  docker_compose:
+    files:
+      - docker-compose.yaml

@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/xhanio/errors v1.0.2
-	github.com/xhanio/framingo v0.2.1
+	github.com/xhanio/framingo v0.2.6
 	go.uber.org/config v1.4.0
 	golang.org/x/mod v0.27.0
 )
