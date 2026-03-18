@@ -38,7 +38,7 @@ func GetEnvKey(key string) string {
 }
 
 func GetConfigDir(name string) string {
-	for _, binary := range conf.Build.Binaries {
+	for _, binary := range project.Build.Binaries {
 		if binary.Name == name {
 			return binary.ConfigDir
 		}
@@ -47,9 +47,9 @@ func GetConfigDir(name string) string {
 }
 
 func GetImageName(name string) string {
-	for _, image := range conf.Build.Images {
+	for _, image := range project.Build.Images {
 		if image.Name == name {
-			return image.GetImageName(envConf)
+			return image.GetImageName(env)
 		}
 	}
 	return ""
@@ -64,7 +64,7 @@ func FromFile(name string) string {
 }
 
 func FromConfigFile(name, filename string) string {
-	b, err := os.ReadFile(filepath.Join(envConf.ConfigTgt, name, filename))
+	b, err := os.ReadFile(filepath.Join(env.ConfigTgt, name, filename))
 	if err != nil {
 		panic(fmt.Errorf("failed to render from file %s: %s", name, err.Error()))
 	}
@@ -72,7 +72,7 @@ func FromConfigFile(name, filename string) string {
 }
 
 func FromConfigJSON(name, filename, jsonpath string) string {
-	b, err := os.ReadFile(filepath.Join(envConf.ConfigTgt, name, filename))
+	b, err := os.ReadFile(filepath.Join(env.ConfigTgt, name, filename))
 	if err != nil {
 		panic(fmt.Errorf("failed to render from file %s: %s", name, err.Error()))
 	}
@@ -81,7 +81,7 @@ func FromConfigJSON(name, filename, jsonpath string) string {
 }
 
 func FromSecretEnv(name, key string) string {
-	b, err := os.ReadFile(filepath.Join(envConf.ConfigTgt, name, "secret.env"))
+	b, err := os.ReadFile(filepath.Join(env.ConfigTgt, name, "secret.env"))
 	if err != nil {
 		panic(fmt.Errorf("failed to render from %s secret.env: %s", name, err.Error()))
 	}
@@ -106,9 +106,9 @@ func FromSecretEnv(name, key string) string {
 }
 
 type renderContext struct {
-	Name   string
-	Config types.Config
-	Env    types.EnvConfig
+	Name    string
+	Project types.Project
+	Env     types.EnvSpec
 }
 
 func render(name, srcDir, dstDir, prefix string, patterns []string) error {
@@ -149,8 +149,8 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 			var buffer bytes.Buffer
 			er = t.Execute(&buffer, &renderContext{
 				Name:   name,
-				Config: conf,
-				Env:    envConf,
+				Project: project,
+				Env:     env,
 			})
 			if er != nil {
 				return er

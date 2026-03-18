@@ -7,7 +7,7 @@ A Go-based project generator and build tool for managing Go projects with multi-
 - **Multi-environment builds**: Separate configurations for local, production, and custom environments
 - **Cross-platform compilation**: Build Go binaries for multiple OS/architecture combinations
 - **Docker image management**: Build from Dockerfiles or third-party images with automatic tagging
-- **Template-based generation**: Generate configs and Kubernetes manifests using Go templates with Sprig functions
+- **Template-based generation**: Generate configs, Kubernetes manifests, and Docker Compose files using Go templates with Sprig functions
 - **Build metadata injection**: Automatically inject Git version info and build metadata into binaries
 - **Flexible filtering**: Use regex patterns to selectively build/generate specific components
 
@@ -117,6 +117,9 @@ generate:
   kubernetes:
     - name: api
       files: ["deployment.yaml", "service.yaml"]
+
+  docker_compose:
+    files: ["docker-compose.yaml"]
 ```
 
 ## Usage
@@ -257,7 +260,7 @@ gopro generate docker-compose -e local # Generate docker-compose.yaml
 - **Template context** (available in templates):
   ```go
   .Name    // Component name being generated
-  .Config  // Full project configuration
+  .Project // Full project configuration
   .Env     // Current environment configuration
   ```
 
@@ -313,7 +316,7 @@ deployment:
 
 service:
   name: [[ .Name ]]
-  environment: production
+  version: [[ .Project.Version ]]
 ```
 
 ```bash
@@ -346,9 +349,11 @@ The project follows a modular CLI architecture using Cobra:
 - **[pkg/components/cmd/](pkg/components/cmd/)**: All CLI command implementations
   - `root.go`: Root command with global flags
   - `build.go`: Binary and image build commands
-  - `generate.go`: Config and template generation commands
+  - `generate.go`: Config, Kubernetes, and Docker Compose generation commands
   - `util_*.go`: Utility functions for execution, rendering, and printing
 - **[pkg/types/](pkg/types/)**: Configuration data structures and loading logic
+  - `project.go`: Project, build, and generate structures
+  - `env.go`: EnvSpec with environment merging
 
 ## Dependencies
 
@@ -356,8 +361,8 @@ Key dependencies:
 - **[Cobra](https://github.com/spf13/cobra)**: CLI framework for command structure
 - **[Sprig](https://github.com/Masterminds/sprig)**: Template function library
 - **[framingo](https://github.com/xhanio/framingo)**: Build information and utilities
-- **[uber-go/config](https://github.com/uber-go/config)**: Configuration merging
-- **[gjson](https://github.com/tidwall/gjson)**: JSON path queries
+- **[uber-go/config](https://github.com/uber-go/config)**: Configuration merging and environment overlays
+- **[gjson](https://github.com/tidwall/gjson)**: JSON path queries in templates
 - **[go-gitignore](https://github.com/sabhiram/go-gitignore)**: .gitignore parsing
 
 ## Contributing

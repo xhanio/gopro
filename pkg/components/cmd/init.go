@@ -23,7 +23,7 @@ func NewInitCmd() *cobra.Command {
 
 func runInitProject(cmd *cobra.Command, args []string) error {
 	// validate that product name is specified
-	if conf.Product == "" {
+	if project.Product == "" {
 		return errors.Newf("product name is required in project.yaml configuration")
 	}
 
@@ -43,8 +43,8 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		linef("initializing go module")
 		args := []string{"mod", "init"}
-		if conf.Project != "" {
-			args = append(args, conf.Project)
+		if project.Module != "" {
+			args = append(args, project.Module)
 		}
 		_, err = execute("go", args, os.Environ(), false)
 		if err != nil {
@@ -53,18 +53,18 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 	}
 
 	// create directories from default configuration
-	if err := createEnvDirectories("default", conf.Default); err != nil {
+	if err := createEnvDirectories("default", project.Default); err != nil {
 		return err
 	}
 	if envName != "" {
 		// create directories from given environment configurations
-		if err := createEnvDirectories(envName, envConf); err != nil {
+		if err := createEnvDirectories(envName, env); err != nil {
 			return err
 		}
 	} else {
 		// create directories from all environment configurations
-		for env, config := range conf.Env {
-			if err := createEnvDirectories(env, config); err != nil {
+		for envKey, cfg := range project.Env {
+			if err := createEnvDirectories(envKey, cfg); err != nil {
 				return err
 			}
 		}
@@ -77,7 +77,7 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 }
 
 // createEnvDirectories creates all source and target directories for a given environment
-func createEnvDirectories(env string, config types.EnvConfig) error {
+func createEnvDirectories(env string, config types.EnvSpec) error {
 	// create all directory paths from the environment config
 	resources := map[types.ResourceType][]string{
 		types.ResourceTypeBinaries:      {config.BinarySrc, config.BinaryTgt},

@@ -23,14 +23,14 @@ func executeBuildImage(name, src, image, base string) error {
 	args = append(args, "--no-cache")
 	args = append(args, "--build-arg", fmt.Sprintf("NAME=%s", name))
 	args = append(args, "--build-arg", fmt.Sprintf("BASE=%s", base))
-	args = append(args, "--build-arg", fmt.Sprintf("CONFIG_TGT=%s", envConf.ConfigTgt))
+	args = append(args, "--build-arg", fmt.Sprintf("CONFIG_TGT=%s", env.ConfigTgt))
 	args = append(args, "--build-arg", fmt.Sprintf("CONFIG_DIR=%s", GetConfigDir(name)))
 	args = append(args, "-f", filepath.Join(info.ProjectRoot, src, "Dockerfile"))
 	args = append(args, info.ProjectRoot)
 	if verbose {
 		debugf("args: %s", strings.Join(args, " "))
 	}
-	_, err := execute("docker", args, envConf.ImageBuildEnv, true)
+	_, err := execute("docker", args, env.ImageBuildEnv, true)
 	return err
 }
 
@@ -49,7 +49,7 @@ func executeTagImage(src, tgt string) error {
 	args = append(args, "tag")
 	args = append(args, src)
 	args = append(args, tgt)
-	_, err := execute("docker", args, envConf.ImageBuildEnv, true)
+	_, err := execute("docker", args, env.ImageBuildEnv, true)
 	return err
 }
 
@@ -89,7 +89,7 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 
 func executeBuildBinary(name, platform, src, dst string) error {
 	var envs []string
-	envs = append(envs, envConf.BinaryBuildEnv...)
+	envs = append(envs, env.BinaryBuildEnv...)
 	if platform != "" {
 		parts := strings.Split(platform, "/")
 		if len(parts) != 2 {
@@ -101,7 +101,7 @@ func executeBuildBinary(name, platform, src, dst string) error {
 	}
 	var args []string
 	args = append(args, "build")
-	args = append(args, envConf.BinaryBuildArgs...)
+	args = append(args, env.BinaryBuildArgs...)
 	args = append(args, injectInfo()...)
 	args = append(args, "-o", filepath.Join(dst, name))
 	args = append(args, filepath.Join(info.ProjectRoot, src))

@@ -11,34 +11,34 @@ import (
 )
 
 var (
-	confPath string
-	conf     types.Config
+	projectPath string
+	project     types.Project
 
 	envName string
-	envConf types.EnvConfig
+	env     types.EnvSpec
 )
 
 func loadConfig() error {
-	p, err := config.NewYAML(config.File(confPath))
+	p, err := config.NewYAML(config.File(projectPath))
 	if err != nil {
 		return err
 	}
-	err = p.Get(config.Root).Populate(&conf)
+	err = p.Get(config.Root).Populate(&project)
 	if err != nil {
 		return err
 	}
-	envConf = conf.GetEnv(envName)
-	goModPath := filepath.Join(filepath.Dir(confPath), "go.mod")
+	env = project.GetEnv(envName)
+	goModPath := filepath.Join(filepath.Dir(projectPath), "go.mod")
 	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
 		return nil
 	}
-	if conf.Project == "" {
-		// load module path from go.mod as conf.Project
+	if project.Module == "" {
+		// load module path from go.mod as project.Module
 		mb, err := os.ReadFile(goModPath)
 		if err != nil {
 			return err
 		}
-		conf.Project = modfile.ModulePath(mb)
+		project.Module = modfile.ModulePath(mb)
 	}
 	return nil
 }

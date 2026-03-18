@@ -27,7 +27,7 @@ func NewRootCmd() *cobra.Command {
 			if help {
 				return cmd.Help()
 			}
-			// load make.yaml to setup conf & envConf
+			// load project.yaml to setup project & env
 			err := loadConfig()
 			if err != nil {
 				return err
@@ -55,10 +55,10 @@ func NewRootCmd() *cobra.Command {
 
 			info.BuildTime = time.Now().Format(time.RFC3339)
 			info.ProjectRoot = wd
-			info.ProjectName = conf.Project
+			info.ProjectName = project.Module
 			info.ProjectPath = strings.Trim(strings.TrimPrefix(wd, filepath.Join(os.Getenv("GOPATH"), "src")), string(filepath.Separator))
-			info.ProductName = conf.Product
-			info.ProductVersion = conf.Version
+			info.ProductName = project.Product
+			info.ProductVersion = project.Version
 			// use default version from git tag
 			if info.BuildVersion == "" {
 				info.BuildVersion = info.GitTag
@@ -77,7 +77,7 @@ func NewRootCmd() *cobra.Command {
 	}
 	root.PersistentFlags().BoolVar(&help, "help", false, "")
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "")
-	root.PersistentFlags().StringVarP(&confPath, "config", "c", "project.yaml", "config file path")
+	root.PersistentFlags().StringVarP(&projectPath, "config", "c", "project.yaml", "config file path")
 	root.PersistentFlags().StringVarP(&envName, "environment", "e", "", "select an environment to generate for")
 	root.PersistentFlags().StringVarP(&filter, "filter", "f", ".*", "filter targets by regex")
 

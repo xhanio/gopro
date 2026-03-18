@@ -1,10 +1,10 @@
-# format: github.com/xhanio/gopro/pkg/types/config.go
+# format: github.com/xhanio/gopro/pkg/types/project.go
 
 product: example # required
 # model:
 # version: develop
 # domain:
-# project: github.com/xhanio/gopro # go module name
+# module: github.com/xhanio/gopro # go module name
 
 default:
   binary_src: build/binary

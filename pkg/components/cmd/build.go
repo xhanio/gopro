@@ -64,19 +64,19 @@ func overwriteBuildInfo() {
 func runBuildBinary(cmd *cobra.Command, args []string) error {
 	overwriteBuildInfo()
 	if binaryOutput == "" {
-		binaryOutput = envConf.BinaryTgt
+		binaryOutput = env.BinaryTgt
 	}
-	for _, name := range envConf.Binaries {
+	for _, name := range env.Binaries {
 		if !filterRegex.MatchString(name) {
 			continue
 		}
-		for _, binary := range conf.Build.Binaries {
+		for _, binary := range project.Build.Binaries {
 			if name != binary.Name {
 				continue
 			}
 			binarySrc := binary.Src
 			if binarySrc == "" {
-				binarySrc = filepath.Join(envConf.BinarySrc, binary.Name)
+				binarySrc = filepath.Join(env.BinarySrc, binary.Name)
 			}
 			// build default platform
 			titlef("Build Binary %s from %s", name, binarySrc)
@@ -104,15 +104,15 @@ func NewBuildImageCmd() *cobra.Command {
 }
 
 func runBuildImage(cmd *cobra.Command, args []string) error {
-	for _, name := range envConf.Images {
+	for _, name := range env.Images {
 		if !filterRegex.MatchString(name) {
 			continue
 		}
-		for _, image := range conf.Build.Images {
+		for _, image := range project.Build.Images {
 			if name != image.Name {
 				continue
 			}
-			buildTarget := image.GetImageName(envConf)
+			buildTarget := image.GetImageName(env)
 			if image.BuildFrom != "" {
 				// build from thrid party image
 				buildSource := image.BuildFrom
@@ -129,7 +129,7 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 				// build from dockerfile
 				buildSource := image.BuildSrc
 				if buildSource == "" {
-					buildSource = filepath.Join(envConf.ImageBuildSrc, image.Name)
+					buildSource = filepath.Join(env.ImageBuildSrc, image.Name)
 				}
 				titlef("Build Image %s from %s as %s", name, buildSource, buildTarget)
 				buildBase := image.Base
