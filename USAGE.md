@@ -8,6 +8,7 @@ This guide provides detailed instructions on using GoPro, a Go-based project gen
 - [Quick Start](#quick-start)
 - [Global Flags](#global-flags)
 - [Commands](#commands)
+  - [example](#example-command)
   - [init](#init-command)
   - [build binary](#build-binary-command)
   - [build image](#build-image-command)
@@ -54,24 +55,15 @@ gopro --help
 
 ## Quick Start
 
-### 1. Create a New Project
+### 1. Generate Example Configuration
 
-Navigate to your Go project directory and create a `project.yaml` file:
+Navigate to your Go project directory and generate an example `project.yaml`:
 
-```yaml
-product: myapp
-version: v1.0.0
-
-default:
-  binary_src: build/binary
-  binary_tgt: bin/
-  binaries: [api]
-
-build:
-  binaries:
-    - name: api
-      src: cmd/api
+```bash
+gopro example
 ```
+
+This saves an example configuration file to the current directory. Edit it to match your project.
 
 ### 2. Initialize Project Structure
 
@@ -125,6 +117,16 @@ gopro build binary -e prod -f "api.*" -v
 ```
 
 ## Commands
+
+### example Command
+
+Generate an example `project.yaml` in the current directory.
+
+```bash
+gopro example
+```
+
+This saves a complete example configuration file that you can use as a starting point. The command will fail if a `project.yaml` already exists to prevent overwriting your configuration.
 
 ### init Command
 
@@ -1224,12 +1226,11 @@ mv gopro /usr/local/bin/
 Error: config file not found: project.yaml
 ```
 
-**Solution**: Specify config file path:
+**Solution**: Specify config file path or generate an example:
 ```bash
-gopro build binary -c /path/to/project.yaml
+gopro example                              # Generate example project.yaml
+gopro build binary -c /path/to/project.yaml  # Or specify a path
 ```
-
-Or create `project.yaml` in current directory.
 
 #### 3. Git Repository Required
 
@@ -1461,7 +1462,7 @@ default:
 ## Additional Resources
 
 - [Project Repository](https://github.com/xhanio/gopro)
-- [Example Configuration](example.project.yaml)
+- [Example Configuration](example.project.yaml) (run `gopro example` to generate)
 - [Sprig Template Functions](http://masterminds.github.io/sprig/)
 - [Go Templates Documentation](https://pkg.go.dev/text/template)
 - [Framingo Package](https://github.com/xhanio/framingo)

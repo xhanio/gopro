@@ -29,13 +29,19 @@ go build -o gopro main.go
 
 ## Quick Start
 
-Initialize a new project:
+Generate an example configuration file:
+
+```bash
+gopro example
+```
+
+This saves an example `project.yaml` to the current directory.
+
+Then initialize the project structure:
 
 ```bash
 gopro init
 ```
-
-This creates a `project.yaml` configuration file with default settings.
 
 ## Configuration
 
@@ -49,7 +55,7 @@ GoPro uses a YAML-based configuration file (`project.yaml`) with the following s
 
 ### Configuration Structure
 
-See [example.project.yaml](example.project.yaml) for a complete example. Key sections:
+Run `gopro example` to generate a complete example, or see the embedded [example.project.yaml](example.project.yaml). Key sections:
 
 ```yaml
 product: myapp
@@ -350,6 +356,7 @@ The project follows a modular CLI architecture using Cobra:
   - `root.go`: Root command with global flags
   - `build.go`: Binary and image build commands
   - `generate.go`: Config, Kubernetes, and Docker Compose generation commands
+  - `example.go`: Example configuration file generation command (uses `example.project.yaml` from project root via `types.ExampleProjectYAML`)
   - `util_*.go`: Utility functions for execution, rendering, and printing
 - **[pkg/types/](pkg/types/)**: Configuration data structures and loading logic
   - `project.go`: Project, build, and generate structures
