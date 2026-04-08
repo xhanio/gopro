@@ -27,6 +27,10 @@ func NewRootCmd() *cobra.Command {
 			if help {
 				return cmd.Help()
 			}
+			// skip config loading for version command
+			if cmd.Name() == "version" {
+				return nil
+			}
 			// load project.yaml to setup project & env
 			err := loadConfig()
 			if err != nil {
@@ -85,5 +89,6 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(NewBuildCmd())
 	root.AddCommand(NewGenerateCmd())
 	root.AddCommand(NewExampleCmd())
+	root.AddCommand(NewVersionCmd())
 	return root
 }
