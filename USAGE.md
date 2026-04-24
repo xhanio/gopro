@@ -149,7 +149,7 @@ gopro init -c custom.yaml  # Use custom config file
    - `bin/` - Binary output directory
    - `dist/` - Generated files directory
    - `test/` - Test directory
-   - `secret.env` - Secret environment files
+   - `secret.env` - Secret environment files (rendering source only, never copied to output)
 
 #### Example Output
 
@@ -426,7 +426,7 @@ generate:
         - "*.yaml"
         - "*.json"
         - "config/*"
-        - "secret.env"
+        # Do NOT include secret.env here — it is read from source by FromSecretEnv, never copied to output
 
 default:
   config_src: env/default/config
@@ -735,7 +735,7 @@ generate:
         - "*.yaml"
         - "*.json"
         - "config/*"
-        - "secret.env"
+        # Do NOT include secret.env — it is read from source by FromSecretEnv
 
     - name: worker
       files: ["*.yaml"]
@@ -845,10 +845,10 @@ host: [[ FromConfigJSON "api" "config.json" "database.host" ]]
 
 #### FromSecretEnv
 
-Read key-value pairs from secret.env:
+Read key-value pairs from secret.env (reads directly from the source config directory, not from dist/):
 
 ```yaml
-# Reads from dist/config/api/secret.env
+# Reads from env/<environment>/config/api/secret.env (source directory)
 password: [[ FromSecretEnv "api" "DB_PASSWORD" ]]
 ```
 
@@ -1095,7 +1095,7 @@ generate:
         - "*.yaml"           # All YAML files
         - "*.json"           # All JSON files
         - "config/*"         # Everything in config/ subdirectory
-        - "!secret.env"      # Exclude secret.env (if supported by implementation)
+        # Do NOT include secret.env — it is only used as a rendering source by FromSecretEnv
 ```
 
 ## Common Workflows
@@ -1250,12 +1250,11 @@ Or run `gopro init` which does this automatically.
 #### 4. Template Rendering Error
 
 ```
-Error: failed to render from file: secret.env: no such file or directory
+Error: failed to render from secret.env: no such file or directory
 ```
 
-**Solution**: Generate dependencies first:
+**Solution**: Ensure `secret.env` exists in the source config directory (e.g., `env/default/config/api/secret.env`). `FromSecretEnv` reads directly from the source directory, not from `dist/`. Also ensure configs are generated before kubernetes if k8s templates reference config files:
 ```bash
-# Generate configs before kubernetes (if k8s templates reference configs)
 gopro generate config -e prod
 gopro generate kubernetes -e prod
 ```
@@ -1378,18 +1377,19 @@ git add env/
 
 ### 2. Secret Management
 
+`secret.env` files are used **only as a rendering source** for `FromSecretEnv` — they are read directly from the source config directory and are **never copied to the output directory**. Do NOT list `secret.env` in the `files` patterns.
+
 ```yaml
-# Use secret.env for sensitive data
+# secret.env is NOT listed in files — it is read from source by FromSecretEnv
 generate:
   configs:
     - name: api
       files:
         - "*.yaml"
-        - "secret.env"
 ```
 
 ```bash
-# .gitignore
+# .gitignore (gopro init adds this automatically)
 secret.env  # Don't commit actual secrets
 ```
 

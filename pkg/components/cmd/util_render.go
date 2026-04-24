@@ -81,7 +81,7 @@ func FromConfigJSON(name, filename, jsonpath string) string {
 }
 
 func FromSecretEnv(name, key string) string {
-	b, err := os.ReadFile(filepath.Join(env.ConfigTgt, name, "secret.env"))
+	b, err := os.ReadFile(filepath.Join(env.ConfigSrc, name, "secret.env"))
 	if err != nil {
 		panic(fmt.Errorf("failed to render from %s secret.env: %s", name, err.Error()))
 	}

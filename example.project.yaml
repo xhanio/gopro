@@ -93,7 +93,10 @@ generate:
         - migrations/*.up.sql
         - migrations/*.down.sql
         - config.json
-        - secret.env
+        # secret.env is not listed here — it is never copied to the output directory.
+        # It is only used as a source for the FromSecretEnv template function during rendering.
+        # Place secret.env files alongside config files (e.g., env/default/config/demo/secret.env)
+        # and add "secret.env" to your project's .gitignore.
 
   kubernetes:
     - name: demo

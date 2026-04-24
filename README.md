@@ -118,7 +118,7 @@ build:
 generate:
   configs:
     - name: api
-      files: ["*.yaml", "*.json", "secret.env"]  # File patterns to process
+      files: ["*.yaml", "*.json"]  # File patterns to process (do NOT include secret.env — it is read from source by FromSecretEnv)
 
   kubernetes:
     - name: api
