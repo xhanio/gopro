@@ -108,6 +108,7 @@ func FromSecretEnv(name, key string) string {
 type renderContext struct {
 	Name    string
 	Project types.Project
+	EnvName string
 	Env     types.EnvSpec
 }
 
@@ -148,8 +149,9 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 			}
 			var buffer bytes.Buffer
 			er = t.Execute(&buffer, &renderContext{
-				Name:   name,
+				Name:    name,
 				Project: project,
+				EnvName: envName,
 				Env:     env,
 			})
 			if er != nil {
