@@ -55,6 +55,11 @@ func NewRootCmd() *cobra.Command {
 				if err == nil {
 					info.GitTag = strings.Trim(tag, " \n\t")
 				}
+				// try to get commit info
+				commit, err := execute("git", []string{"rev-parse", "HEAD"}, os.Environ(), false)
+				if err == nil {
+					info.GitCommit = strings.Trim(commit, " \n\t")
+				}
 			}
 
 			info.BuildTime = time.Now().Format(time.RFC3339)

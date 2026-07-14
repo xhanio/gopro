@@ -14,6 +14,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/xhanio/framingo/pkg/types/info"
+	"github.com/xhanio/framingo/pkg/utils/envutil"
 	"github.com/xhanio/gopro/pkg/types"
 )
 
@@ -30,7 +31,7 @@ func funcMap() template.FuncMap {
 }
 
 func GetEnvKey(key string) string {
-	prefix := info.EnvPrefix(info.ProductName)
+	prefix := envutil.EnvPrefix(info.ProductName)
 	if prefix == "" {
 		return key
 	}
