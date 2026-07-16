@@ -17,7 +17,8 @@ var (
 	buildDate      string
 	binaryOutput   string
 
-	pushImage bool
+	pushImage  bool
+	pushLatest bool
 )
 
 func NewBuildCmd() *cobra.Command {
@@ -100,10 +101,14 @@ func NewBuildImageCmd() *cobra.Command {
 		RunE: runBuildImage,
 	}
 	cmd.Flags().BoolVarP(&pushImage, "push", "p", false, "push image")
+	cmd.Flags().BoolVarP(&pushLatest, "latest", "l", false, "also tag and push :latest (requires --push)")
 	return cmd
 }
 
 func runBuildImage(cmd *cobra.Command, args []string) error {
+	if pushLatest && !pushImage {
+		warnf("--latest has no effect without --push; ignoring")
+	}
 	for _, name := range env.Images {
 		if !filterRegex.MatchString(name) {
 			continue
@@ -146,6 +151,18 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 				err := executePushImage(buildTarget)
 				if err != nil {
 					return err
+				}
+				if pushLatest {
+					latestTarget := image.GetImageNameWithTag(env, "latest")
+					if latestTarget != buildTarget {
+						titlef("Tag+Push Latest %s", latestTarget)
+						if err := executeTagImage(buildTarget, latestTarget); err != nil {
+							return err
+						}
+						if err := executePushImage(latestTarget); err != nil {
+							return err
+						}
+					}
 				}
 			}
 		}

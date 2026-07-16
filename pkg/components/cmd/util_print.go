@@ -18,6 +18,10 @@ func debugf(format string, args ...any) {
 	printf(color.FgHiBlue, true, false, format, args...)
 }
 
+func warnf(format string, args ...any) {
+	printf(color.FgHiYellow, true, true, format, args...)
+}
+
 func printf(c color.Attribute, env bool, bold bool, format string, args ...any) {
 	ec := color.New(color.FgHiCyan)
 	if bold {
