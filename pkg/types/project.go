@@ -77,20 +77,14 @@ type ImageSpec struct {
 	NoPush    bool   `yaml:"no_push,omitempty"`
 }
 
-func (i ImageSpec) GetImageName(env EnvSpec) string {
+// GetImageNameWithTag resolves the fully-qualified image reference for an
+// explicit tag, applying the same repo/prefix resolution as GetImageName.
+func (i ImageSpec) GetImageNameWithTag(env EnvSpec, tag string) string {
 	// image repo defined in build section
 	repo := i.Repo
 	if repo == "" {
 		// image repo undefined, use image name instead
 		repo = i.Name
-	}
-	// image tag defined in build section
-	tag := i.Tag
-	if tag == "" {
-		tag = env.ImageTag
-	}
-	if tag == "" {
-		tag = "latest"
 	}
 	// image prefix defined in build section
 	prefix := i.Prefix
@@ -101,6 +95,18 @@ func (i ImageSpec) GetImageName(env EnvSpec) string {
 		return fmt.Sprintf("%s:%s", path.Join(prefix, repo), tag)
 	}
 	return fmt.Sprintf("%s:%s", repo, tag)
+}
+
+func (i ImageSpec) GetImageName(env EnvSpec) string {
+	// image tag defined in build section
+	tag := i.Tag
+	if tag == "" {
+		tag = env.ImageTag
+	}
+	if tag == "" {
+		tag = "latest"
+	}
+	return i.GetImageNameWithTag(env, tag)
 }
 
 type GenerateSpec struct {
