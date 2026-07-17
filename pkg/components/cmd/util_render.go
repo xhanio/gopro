@@ -23,6 +23,7 @@ func funcMap() template.FuncMap {
 	fm["GetEnvKey"] = GetEnvKey
 	fm["GetConfigDir"] = GetConfigDir
 	fm["GetImageName"] = GetImageName
+	fm["GetImageNameWithTag"] = GetImageNameWithTag
 	fm["FromFile"] = FromFile
 	fm["FromConfigFile"] = FromConfigFile
 	fm["FromConfigJSON"] = FromConfigJSON
@@ -51,6 +52,15 @@ func GetImageName(name string) string {
 	for _, image := range project.Build.Images {
 		if image.Name == name {
 			return image.GetImageName(env)
+		}
+	}
+	return ""
+}
+
+func GetImageNameWithTag(name, tag string) string {
+	for _, image := range project.Build.Images {
+		if image.Name == name {
+			return image.GetImageNameWithTag(env, tag)
 		}
 	}
 	return ""
