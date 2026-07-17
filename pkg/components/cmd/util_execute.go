@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/xhanio/framingo/pkg/types/info"
+	"github.com/xhanio/framingo/pkg/utils/envutil"
 )
 
 func executeBuildImage(name, src, image, base string) error {
@@ -87,21 +88,23 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	return buffer.String(), err
 }
 
-func executeBuildBinary(name, platform, src, dst string) error {
+// executeBuildBinary expects buildEnv and buildArgs already resolved against
+// the environment by types.BinarySpec.
+func executeBuildBinary(name, platform, src, dst string, buildEnv, buildArgs []string) error {
 	var envs []string
-	envs = append(envs, env.BinaryBuildEnv...)
+	envs = append(envs, buildEnv...)
 	if platform != "" {
 		parts := strings.Split(platform, "/")
 		if len(parts) != 2 {
 			return errors.New("unknown platform " + platform)
 		}
 		name = fmt.Sprintf("%s_%s_%s", name, parts[0], parts[1])
-		envs = append(envs, "GOOS="+parts[0])
-		envs = append(envs, "GOARCH="+parts[1])
+		// The platform being built for outranks any GOOS/GOARCH in build_env.
+		envs = envutil.Merge(envs, []string{"GOOS=" + parts[0], "GOARCH=" + parts[1]})
 	}
 	var args []string
 	args = append(args, "build")
-	args = append(args, env.BinaryBuildArgs...)
+	args = append(args, buildArgs...)
 	args = append(args, injectInfo()...)
 	args = append(args, "-o", filepath.Join(dst, name))
 	args = append(args, filepath.Join(info.ProjectRoot, src))

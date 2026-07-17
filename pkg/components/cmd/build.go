@@ -79,14 +79,16 @@ func runBuildBinary(cmd *cobra.Command, args []string) error {
 			if binarySrc == "" {
 				binarySrc = filepath.Join(env.BinarySrc, binary.Name)
 			}
+			buildEnv := binary.GetBuildEnv(env)
+			buildArgs := binary.GetBuildArgs(env)
 			// build default platform
 			titlef("Build Binary %s from %s", name, binarySrc)
-			if err := executeBuildBinary(binary.Name, "", binarySrc, binaryOutput); err != nil {
+			if err := executeBuildBinary(binary.Name, "", binarySrc, binaryOutput, buildEnv, buildArgs); err != nil {
 				return err
 			}
 			for _, platform := range binary.Platform {
 				linef("build for platform %s", platform)
-				if err := executeBuildBinary(binary.Name, platform, binarySrc, binaryOutput); err != nil {
+				if err := executeBuildBinary(binary.Name, platform, binarySrc, binaryOutput, buildEnv, buildArgs); err != nil {
 					return err
 				}
 			}

@@ -8,6 +8,8 @@ import (
 
 	"go.uber.org/config"
 	"golang.org/x/mod/modfile"
+
+	"github.com/xhanio/framingo/pkg/utils/envutil"
 )
 
 // ExampleProjectYAML holds the embedded example project.yaml, injected from main.
@@ -63,7 +65,30 @@ type BinarySpec struct {
 	Name      string   `yaml:"name"`
 	Src       string   `yaml:"src,omitempty"`
 	Platform  []string `yaml:"platform,omitempty"`
+	BuildEnv  []string `yaml:"build_env,omitempty"`
+	BuildArgs []string `yaml:"build_args,omitempty"`
 	ConfigDir string   `yaml:"config_dir,omitempty"`
+}
+
+// GetBuildEnv layers a binary's build_env over the environment's
+// binary_build_env, keyed on the variable name, so a binary overrides only the
+// variables it names and inherits the rest.
+func (b BinarySpec) GetBuildEnv(env EnvSpec) []string {
+	return envutil.Merge(env.BinaryBuildEnv, b.BuildEnv)
+}
+
+// GetBuildArgs returns a binary's build_args, falling back to the
+// environment's binary_build_args. Unlike build_env these replace rather than
+// merge: go build flags are positional and repeatable, so a key-wise merge
+// cannot tell an override from an accumulation.
+//
+// Only an unset build_args inherits. Setting it to an empty list is a way to
+// build with no arguments at all, so the test is nil rather than empty.
+func (b BinarySpec) GetBuildArgs(env EnvSpec) []string {
+	if b.BuildArgs != nil {
+		return b.BuildArgs
+	}
+	return env.BinaryBuildArgs
 }
 
 type ImageSpec struct {
