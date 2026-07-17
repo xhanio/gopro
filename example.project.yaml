@@ -87,11 +87,17 @@ build:
         - '-s'
         - -ldflags
         - '-extldflags "-static"'
-      platform:
+      platform: # deprecated: use platforms instead, still honored for now
         - darwin/arm64
         - darwin/amd64
-        - linux/amd64
-        - linux/arm64
+      platforms:
+        - name: linux/amd64
+        - name: linux/arm64
+          env: # merge the build_env
+            - CC=aarch64-linux-gnu-gcc
+          args: # replace the build_args
+            - -v
+            - -tags=netgo
 
   images:
     - name: db

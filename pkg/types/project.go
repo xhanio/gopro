@@ -8,8 +8,6 @@ import (
 
 	"go.uber.org/config"
 	"golang.org/x/mod/modfile"
-
-	"github.com/xhanio/framingo/pkg/utils/envutil"
 )
 
 // ExampleProjectYAML holds the embedded example project.yaml, injected from main.
@@ -62,33 +60,47 @@ type BuildSpec struct {
 }
 
 type BinarySpec struct {
-	Name      string   `yaml:"name"`
-	Src       string   `yaml:"src,omitempty"`
-	Platform  []string `yaml:"platform,omitempty"`
-	BuildEnv  []string `yaml:"build_env,omitempty"`
-	BuildArgs []string `yaml:"build_args,omitempty"`
-	ConfigDir string   `yaml:"config_dir,omitempty"`
+	Name string `yaml:"name"`
+	Src  string `yaml:"src,omitempty"`
+	// Deprecated: use Platforms, which also carries per-platform env and args.
+	// Still honored, and folded into Platforms by GetPlatforms.
+	Platform  []string       `yaml:"platform,omitempty"`
+	Platforms []PlatformSpec `yaml:"platforms,omitempty"`
+	BuildEnv  []string       `yaml:"build_env,omitempty"`
+	BuildArgs []string       `yaml:"build_args,omitempty"`
+	ConfigDir string         `yaml:"config_dir,omitempty"`
 }
 
-// GetBuildEnv layers a binary's build_env over the environment's
-// binary_build_env, keyed on the variable name, so a binary overrides only the
-// variables it names and inherits the rest.
-func (b BinarySpec) GetBuildEnv(env EnvSpec) []string {
-	return envutil.Merge(env.BinaryBuildEnv, b.BuildEnv)
+type PlatformSpec struct {
+	Name string   `yaml:"name"`
+	Env  []string `yaml:"env,omitempty"`
+	Args []string `yaml:"args,omitempty"`
 }
 
-// GetBuildArgs returns a binary's build_args, falling back to the
-// environment's binary_build_args. Unlike build_env these replace rather than
-// merge: go build flags are positional and repeatable, so a key-wise merge
-// cannot tell an override from an accumulation.
+// GetPlatforms returns the platforms to build for, folding the plain platform
+// list into the richer platforms spec. platform stays supported so existing
+// configs keep working; a platform needing env or args moves to platforms.
 //
-// Only an unset build_args inherits. Setting it to an empty list is a way to
-// build with no arguments at all, so the test is nil rather than empty.
-func (b BinarySpec) GetBuildArgs(env EnvSpec) []string {
-	if b.BuildArgs != nil {
-		return b.BuildArgs
+// A name given in both keeps its first-seen position and takes the platforms
+// entry, so the two can be mixed without duplicating a build.
+func (b BinarySpec) GetPlatforms() []PlatformSpec {
+	var result []PlatformSpec
+	at := make(map[string]int, len(b.Platform)+len(b.Platforms))
+	add := func(p PlatformSpec) {
+		if i, ok := at[p.Name]; ok {
+			result[i] = p
+			return
+		}
+		at[p.Name] = len(result)
+		result = append(result, p)
 	}
-	return env.BinaryBuildArgs
+	for _, name := range b.Platform {
+		add(PlatformSpec{Name: name})
+	}
+	for _, p := range b.Platforms {
+		add(p)
+	}
+	return result
 }
 
 type ImageSpec struct {

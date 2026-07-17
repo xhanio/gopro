@@ -12,6 +12,8 @@ import (
 
 	"github.com/xhanio/framingo/pkg/types/info"
 	"github.com/xhanio/framingo/pkg/utils/envutil"
+
+	"github.com/xhanio/gopro/pkg/types"
 )
 
 func executeBuildImage(name, src, image, base string) error {
@@ -88,15 +90,33 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	return buffer.String(), err
 }
 
-// executeBuildBinary expects buildEnv and buildArgs already resolved against
-// the environment by types.BinarySpec.
-func executeBuildBinary(name, platform, src, dst string, buildEnv, buildArgs []string) error {
-	var envs []string
-	envs = append(envs, buildEnv...)
-	if platform != "" {
-		parts := strings.Split(platform, "/")
+// buildArgsFor returns the most specific build args declared. Unlike build env
+// these replace rather than merge: go build flags are positional and
+// repeatable, so a key-wise merge cannot tell an override from an
+// accumulation. Only an unset level inherits, so an empty list is a way to
+// build with no arguments at all -- which is why this tests nil rather than
+// length, and why sliceutil.Last can't stand in ([]string isn't comparable).
+func buildArgsFor(e types.EnvSpec, binary types.BinarySpec, platform types.PlatformSpec) []string {
+	args := e.BinaryBuildArgs
+	if binary.BuildArgs != nil {
+		args = binary.BuildArgs
+	}
+	if platform.Args != nil {
+		args = platform.Args
+	}
+	return args
+}
+
+// executeBuildBinary builds one binary for one platform. A zero PlatformSpec
+// builds for the host, inheriting everything and pinning no GOOS/GOARCH.
+func executeBuildBinary(binary types.BinarySpec, platform types.PlatformSpec, src, dst string) error {
+	name := binary.Name
+	// Each level overrides only the variables it names, inheriting the rest.
+	envs := envutil.Merge(env.BinaryBuildEnv, binary.BuildEnv, platform.Env)
+	if platform.Name != "" {
+		parts := strings.Split(platform.Name, "/")
 		if len(parts) != 2 {
-			return errors.New("unknown platform " + platform)
+			return errors.New("unknown platform " + platform.Name)
 		}
 		name = fmt.Sprintf("%s_%s_%s", name, parts[0], parts[1])
 		// The platform being built for outranks any GOOS/GOARCH in build_env.
@@ -104,7 +124,7 @@ func executeBuildBinary(name, platform, src, dst string, buildEnv, buildArgs []s
 	}
 	var args []string
 	args = append(args, "build")
-	args = append(args, buildArgs...)
+	args = append(args, buildArgsFor(env, binary, platform)...)
 	args = append(args, injectInfo()...)
 	args = append(args, "-o", filepath.Join(dst, name))
 	args = append(args, filepath.Join(info.ProjectRoot, src))

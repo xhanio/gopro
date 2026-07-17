@@ -7,101 +7,91 @@ import (
 	"testing"
 )
 
-// nil and empty both mean "nothing to pass through", so don't distinguish them.
-func equalEntries(a, b []string) bool {
-	if len(a) == 0 && len(b) == 0 {
-		return true
+// The legacy platform list keeps loading alongside the richer platforms spec.
+func TestLoadBothPlatformForms(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "project.yaml")
+	// module is set so Load doesn't go looking for a go.mod.
+	body := `product: demo
+module: demo.test/demo
+build:
+  binaries:
+    - name: hello
+      platform:
+        - darwin/arm64
+        - darwin/amd64
+      platforms:
+        - name: linux/amd64
+          env:
+            - CGO_ENABLED=1
+          args:
+            - -tags=netgo
+`
+	if err := os.WriteFile(conf, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	return reflect.DeepEqual(a, b)
-}
-
-func TestGetBuildEnv(t *testing.T) {
-	tests := []struct {
-		name   string
-		binary BinarySpec
-		env    EnvSpec
-		want   []string
-	}{
-		{
-			name:   "binary overrides env on the same key",
-			binary: BinarySpec{BuildEnv: []string{"CGO_ENABLED=1"}},
-			env:    EnvSpec{BinaryBuildEnv: []string{"CGO_ENABLED=0", "GOFLAGS=-mod=vendor"}},
-			want:   []string{"CGO_ENABLED=1", "GOFLAGS=-mod=vendor"},
-		},
-		{
-			name:   "key absent from env is appended",
-			binary: BinarySpec{BuildEnv: []string{"GOEXPERIMENT=loopvar"}},
-			env:    EnvSpec{BinaryBuildEnv: []string{"CGO_ENABLED=0"}},
-			want:   []string{"CGO_ENABLED=0", "GOEXPERIMENT=loopvar"},
-		},
-		{
-			name: "env inherited when binary declares none",
-			env:  EnvSpec{BinaryBuildEnv: []string{"CGO_ENABLED=0"}},
-			want: []string{"CGO_ENABLED=0"},
-		},
-		{
-			name:   "binary used when env declares none",
-			binary: BinarySpec{BuildEnv: []string{"CGO_ENABLED=1"}},
-			want:   []string{"CGO_ENABLED=1"},
-		},
-		{
-			name:   "key splits on first equals so values may contain equals",
-			binary: BinarySpec{BuildEnv: []string{"GOFLAGS=-mod=mod"}},
-			env:    EnvSpec{BinaryBuildEnv: []string{"GOFLAGS=-mod=vendor"}},
-			want:   []string{"GOFLAGS=-mod=mod"},
-		},
-		{
-			name: "nothing declared anywhere",
-			want: nil,
-		},
+	var p Project
+	if err := p.Load(conf); err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.binary.GetBuildEnv(tt.env); !equalEntries(got, tt.want) {
-				t.Fatalf("GetBuildEnv() = %q, want %q", got, tt.want)
-			}
-		})
+	b := p.Build.Binaries[0]
+	if !reflect.DeepEqual(b.Platform, []string{"darwin/arm64", "darwin/amd64"}) {
+		t.Fatalf("legacy platform = %q", b.Platform)
+	}
+	if len(b.Platforms) != 1 || b.Platforms[0].Name != "linux/amd64" {
+		t.Fatalf("platforms = %+v", b.Platforms)
+	}
+	if !reflect.DeepEqual(b.Platforms[0].Env, []string{"CGO_ENABLED=1"}) {
+		t.Fatalf("platforms[0].Env = %q", b.Platforms[0].Env)
 	}
 }
 
-func TestGetBuildArgs(t *testing.T) {
+func TestGetPlatforms(t *testing.T) {
 	tests := []struct {
 		name   string
 		binary BinarySpec
-		env    EnvSpec
-		want   []string
+		want   []PlatformSpec
 	}{
 		{
-			name:   "binary replaces env wholesale rather than merging",
-			binary: BinarySpec{BuildArgs: []string{"-trimpath"}},
-			env:    EnvSpec{BinaryBuildArgs: []string{"-race", "-v"}},
-			want:   []string{"-trimpath"},
+			name:   "legacy platform entries carry no overrides",
+			binary: BinarySpec{Platform: []string{"darwin/arm64", "linux/amd64"}},
+			want:   []PlatformSpec{{Name: "darwin/arm64"}, {Name: "linux/amd64"}},
 		},
 		{
-			name: "env inherited when binary declares none",
-			env:  EnvSpec{BinaryBuildArgs: []string{"-race"}},
-			want: []string{"-race"},
+			name:   "platforms entries pass through",
+			binary: BinarySpec{Platforms: []PlatformSpec{{Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}}},
+			want:   []PlatformSpec{{Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}},
 		},
 		{
-			name:   "explicitly empty build_args opts out of the env's",
-			binary: BinarySpec{BuildArgs: []string{}},
-			env:    EnvSpec{BinaryBuildArgs: []string{"-race", "-v"}},
+			name: "disjoint names concatenate, legacy first",
+			binary: BinarySpec{
+				Platform:  []string{"darwin/arm64"},
+				Platforms: []PlatformSpec{{Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}},
+			},
+			want: []PlatformSpec{{Name: "darwin/arm64"}, {Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}},
+		},
+		{
+			name: "a name in both keeps its position and takes the overrides",
+			binary: BinarySpec{
+				Platform:  []string{"darwin/arm64", "linux/amd64"},
+				Platforms: []PlatformSpec{{Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}},
+			},
+			want: []PlatformSpec{{Name: "darwin/arm64"}, {Name: "linux/amd64", Env: []string{"CGO_ENABLED=1"}}},
+		},
+		{
+			name:   "no platforms declared",
+			binary: BinarySpec{},
 			want:   nil,
 		},
-		{
-			name:   "binary used when env declares none",
-			binary: BinarySpec{BuildArgs: []string{"-trimpath"}},
-			want:   []string{"-trimpath"},
-		},
-		{
-			name: "nothing declared anywhere",
-			want: nil,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.binary.GetBuildArgs(tt.env); !equalEntries(got, tt.want) {
-				t.Fatalf("GetBuildArgs() = %q, want %q", got, tt.want)
+			got := tt.binary.GetPlatforms()
+			if len(got) == 0 && len(tt.want) == 0 {
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("GetPlatforms() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

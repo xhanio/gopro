@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xhanio/framingo/pkg/types/info"
+
+	"github.com/xhanio/gopro/pkg/types"
 )
 
 var (
@@ -79,16 +81,14 @@ func runBuildBinary(cmd *cobra.Command, args []string) error {
 			if binarySrc == "" {
 				binarySrc = filepath.Join(env.BinarySrc, binary.Name)
 			}
-			buildEnv := binary.GetBuildEnv(env)
-			buildArgs := binary.GetBuildArgs(env)
 			// build default platform
 			titlef("Build Binary %s from %s", name, binarySrc)
-			if err := executeBuildBinary(binary.Name, "", binarySrc, binaryOutput, buildEnv, buildArgs); err != nil {
+			if err := executeBuildBinary(binary, types.PlatformSpec{}, binarySrc, binaryOutput); err != nil {
 				return err
 			}
-			for _, platform := range binary.Platform {
-				linef("build for platform %s", platform)
-				if err := executeBuildBinary(binary.Name, platform, binarySrc, binaryOutput, buildEnv, buildArgs); err != nil {
+			for _, platform := range binary.GetPlatforms() {
+				linef("build for platform %s", platform.Name)
+				if err := executeBuildBinary(binary, platform, binarySrc, binaryOutput); err != nil {
 					return err
 				}
 			}
