@@ -5,7 +5,7 @@ A Go-based project generator and build tool for managing Go projects with multi-
 ## Features
 
 - **Multi-environment builds**: Separate configurations for local, production, and custom environments
-- **Cross-platform compilation**: Build Go binaries for multiple OS/architecture combinations
+- **Cross-platform compilation**: Build Go binaries for multiple OS/architecture combinations, each with its own build environment and flags
 - **Docker image management**: Build from Dockerfiles or third-party images with automatic tagging
 - **Template-based generation**: Generate configs, Kubernetes manifests, and Docker Compose files using Go templates with Sprig functions
 - **Build metadata injection**: Automatically inject Git version info and build metadata into binaries
@@ -27,6 +27,20 @@ cd gopro
 go build -o gopro main.go
 ```
 
+### Claude Code plugin
+
+GoPro's conventions are packaged as a Claude Code skill, so an agent writes
+`project.yaml` and drives the build correctly without being walked through
+them:
+
+```
+/plugin marketplace add https://github.com/xhanio/plugins
+/plugin install gopro@xhanio
+```
+
+It activates on its own whenever a session touches `project.yaml` or a GoPro
+build. See [`plugins/gopro/README.md`](plugins/gopro/README.md).
+
 ## Quick Start
 
 Generate an example configuration file:
@@ -35,7 +49,8 @@ Generate an example configuration file:
 gopro example
 ```
 
-This saves an example `project.yaml` to the current directory.
+This saves an example `project.yaml` to the current directory. It refuses to
+overwrite an existing one.
 
 Then initialize the project structure:
 
@@ -43,25 +58,45 @@ Then initialize the project structure:
 gopro init
 ```
 
+This creates the source and target directories declared in `project.yaml`,
+initializes a Git repository and Go module if they are missing, and adds
+`bin/`, `dist/`, `test/`, and `secret.env` to `.gitignore`.
+
 ## Configuration
 
 GoPro uses a YAML-based configuration file (`project.yaml`) with the following structure:
 
-- **product**: Product name (used for environment variable prefixes)
+- **product**: Product name, required (also used as the environment variable prefix)
+- **model**, **version**, **domain**, **module**: Optional project metadata; `module` is read from `go.mod` when unset, and `version` falls back to the current Git tag
 - **default**: Base configuration shared across all environments
 - **env**: Environment-specific overrides (local, prod, custom)
 - **build**: Binary and Docker image build specifications
-- **generate**: Template generation specifications for configs and Kubernetes manifests
+- **generate**: Template generation specifications for configs, Kubernetes manifests, and Docker Compose files
+
+The `default`/`env` sections say *where* things live and *which* components are
+active (`binaries`, `images`, `configs`, `kubernetes_templates`); the
+`build`/`generate` sections describe *how* each named component is built or
+rendered. A component is only acted on when its name appears in both.
+
+When an environment overrides a `default` value, the merge is per key, not per
+element: **arrays are replaced wholesale**. An `env.local.binary_build_env` of
+`[CGO_ENABLED=1]` drops every other variable `default` had set, so anything still
+needed must be restated. This is deliberately unlike the per-binary and
+per-platform build layers described under
+[Build Binaries](#build-binaries), which merge environment variables key-wise.
 
 ### Configuration Structure
 
-Run `gopro example` to generate a complete example, or see the embedded [example.project.yaml](example.project.yaml). Key sections:
+Run `gopro example` to generate a complete example, or see the embedded
+[example.project.yaml](example.project.yaml). For the full field-by-field
+reference, see the [Usage Guide](USAGE.md). Key sections:
 
 ```yaml
-product: myapp
+product: myapp                   # Required; also the environment variable prefix
+module: github.com/me/myapp      # Optional; read from go.mod when unset
 
 default:
-  binary_src: build/binary      # Source directory for binaries
+  binary_src: build/binary       # Source directory for binaries
   binary_tgt: bin/               # Output directory for binaries
   binary_build_env:              # Environment variables for all builds
     - CGO_ENABLED=0
@@ -72,6 +107,9 @@ default:
 
   image_build_src: build/image   # Dockerfile source directory
   image_prefix: myregistry.io    # Default image registry
+  image_tag: v1.0.0              # Default image tag (defaults to "latest")
+  image_build_env:               # Environment for docker build/tag
+    - DOCKER_BUILDKIT=1
 
   config_src: env/default/config
   config_tgt: dist/config
@@ -101,8 +139,14 @@ build:
   binaries:
     - name: api
       src: cmd/api                    # Optional: override source path
-      platform: [linux/amd64, darwin/arm64]
       config_dir: /etc/myapp          # Config directory in container
+      build_env: [CGO_ENABLED=0]      # Optional: merged over binary_build_env
+      build_args: [-v]                # Optional: replaces binary_build_args
+      platforms:
+        - name: linux/amd64
+        - name: linux/arm64
+          env: [CC=aarch64-linux-gnu-gcc]  # Merged over build_env
+          args: [-v, -tags=netgo]          # Replaces build_args
 
   images:
     - name: base
@@ -135,9 +179,21 @@ generate:
 All commands support these global flags:
 
 - `-c, --config <path>`: Specify configuration file path (default: `project.yaml`)
-- `-e, --environment <name>`: Target environment (default, local, prod, or custom)
-- `-f, --filter <regex>`: Filter components using regex pattern
+- `-e, --environment <name>`: Target environment (`local`, `prod`, or custom). When omitted, the `default` section is used as-is; a named environment is merged on top of `default`
+- `-f, --filter <regex>`: Filter components using regex pattern (default: `.*`)
 - `-v, --verbose`: Enable verbose output for debugging
+
+### Project Commands
+
+```bash
+gopro example                          # Write an example project.yaml to the current directory
+gopro init                             # Create project directories, git repo, go module, .gitignore
+gopro init -e prod                     # Only create directories for the prod environment
+gopro version                          # Print version and build time
+```
+
+`gopro init` creates directories for `default` plus every environment in
+`project.yaml`; passing `-e` limits it to `default` plus that one environment.
 
 ### Build Commands
 
@@ -161,8 +217,14 @@ Additional flags:
 **Features:**
 
 - **Cross-platform compilation**: Build for multiple OS/arch combinations
-  - Platform-specific binaries named as `{name}_{GOOS}_{GOARCH}` (e.g., `api_linux_amd64`)
-  - Configure platforms via `platform` array (e.g., `[linux/amd64, darwin/arm64]`)
+  - A host binary named `{name}` is always built first, with no `GOOS`/`GOARCH` pinned
+  - Each entry in `platforms` then produces `{name}_{GOOS}_{GOARCH}` (e.g., `api_linux_amd64`)
+  - `GOOS`/`GOARCH` derived from the platform name outrank anything set in the build environment
+  - The older `platform: [linux/amd64, darwin/arm64]` shorthand is deprecated but still honored, and is folded into `platforms`. A name given in both lists keeps its first-seen position and takes the `platforms` entry, so the two can be mixed without building twice
+
+- **Layered build environment and flags**: Three levels, resolved differently
+  - `binary_build_env` → binary `build_env` → platform `env` are **merged** key-wise: each level overrides only the variables it names and inherits the rest
+  - `binary_build_args` → binary `build_args` → platform `args` **replace** wholesale: the most specific level that sets a list wins, because Go build flags are positional and repeatable, so a key-wise merge cannot tell an override from an accumulation. Only an unset level inherits — an explicitly empty list means "build with no arguments"
 
 - **Build metadata injection**: Automatic version info embedding via `-ldflags`
   - Product model, version, and build type
@@ -181,10 +243,12 @@ Additional flags:
 gopro build image                      # Build images
 gopro build image --push               # Build and push images
 gopro build image -p -f "api.*"        # Build and push specific images
+gopro build image -p -l                # Build, push, and also tag/push :latest
 ```
 
 Additional flags:
 - `-p, --push`: Push images to registry after building
+- `-l, --latest`: Additionally tag and push the image as `:latest` (requires `--push`; warns and does nothing without it)
 
 **Features:**
 
@@ -206,8 +270,11 @@ Additional flags:
 
 - **Smart push behavior**:
   - Use `--push` flag to push after building
+  - Add `--latest` to also tag and push `:latest` (skipped when the image already builds as `:latest`)
   - Skip specific images with `no_push: true`
   - Only pushes successfully built images
+
+- **Build execution**: Images build with `--no-cache`, using `{build_src}/Dockerfile` with the project root as build context, and inherit `image_build_env` as the Docker environment
 
 ### Generate Commands
 
@@ -220,8 +287,11 @@ gopro generate config -f "api.*"       # Generate specific configs
 ```
 
 Additional flags:
-- `-o, --output <path>`: Specify custom output directory
-- `-x, --prefix <prefix>`: Template file prefix (default: `template.`)
+- `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`)
+- `-x, --prefix <prefix>`: Template file prefix (default: `template.`) — available on all `generate` subcommands
+
+Each config's target directory is removed before rendering, so generated output
+is always a clean reflection of the sources.
 
 #### Generate Kubernetes Manifests
 
@@ -232,13 +302,19 @@ gopro generate kubernetes -f "api.*"   # Generate specific manifests
 ```
 
 Additional flags:
-- `-t, --output <path>`: Specify custom output directory
+- `-t, --output <path>`: Specify custom output directory (defaults to `kubernetes_tgt`)
+
+As with configs, each template's target directory is removed before rendering.
 
 #### Generate Docker Compose
 
 ```bash
 gopro generate docker-compose -e local # Generate docker-compose.yaml
 ```
+
+Output goes to `docker_compose_tgt` (or the current directory when unset). Unlike
+config and Kubernetes generation, this command has no output flag and does not
+clear the target directory.
 
 **Template Rendering Features:**
 
@@ -257,7 +333,8 @@ gopro generate docker-compose -e local # Generate docker-compose.yaml
   - **Sprig v3**: Complete Sprig library (strings, dates, encoding, etc.)
   - **`GetEnvKey`**: Generate environment variable names with product prefix
   - **`GetConfigDir`**: Get config directory path for a binary
-  - **`GetImageName`**: Get fully qualified image name
+  - **`GetImageName`**: Get fully qualified image name for a configured image
+  - **`GetImageNameWithTag`**: Same resolution, with an explicit tag — `GetImageNameWithTag "api" "latest"`
   - **`FromFile`**: Read file content from any path
   - **`FromConfigFile`**: Read from generated config files
   - **`FromConfigJSON`**: Extract JSON values via JSONPath
@@ -267,7 +344,8 @@ gopro generate docker-compose -e local # Generate docker-compose.yaml
   ```go
   .Name    // Component name being generated
   .Project // Full project configuration
-  .Env     // Current environment configuration
+  .EnvName // Selected environment name ("" when -e was not given)
+  .Env     // Current environment configuration (default merged with the selected env)
   ```
 
 - **File filtering**:
@@ -285,7 +363,10 @@ build:
   binaries:
     - name: api
       src: cmd/api
-      platform: [linux/amd64, darwin/arm64, windows/amd64]
+      platforms:
+        - name: linux/amd64
+        - name: darwin/arm64
+        - name: windows/amd64
 
 env:
   local:
@@ -313,21 +394,26 @@ env:
   prod:
     image_prefix: myregistry.io/myapp
     image_tag: v1.0.0
-    config_tgt: /etc/myapp
+    config_src: env/prod/config
+    config_tgt: dist/prod/config
+```
 
-# configs/api/template.config.yaml
+```yaml
+# env/prod/config/api/template.config.yaml
 deployment:
   image: [[ GetImageName "api" ]]
+  rollback_image: [[ GetImageNameWithTag "api" "stable" ]]
   config_path: [[ .Env.ConfigTgt ]]
 
 service:
   name: [[ .Name ]]
+  environment: [[ .EnvName ]]
   version: [[ .Project.Version ]]
 ```
 
 ```bash
 gopro generate config -e prod
-# Outputs: configs_generated/api/config.yaml with evaluated template values
+# Outputs: dist/prod/config/api/config.yaml with evaluated template values
 ```
 
 ### Docker Image with Cross-References
@@ -351,16 +437,20 @@ gopro build image -e prod --push
 
 The project follows a modular CLI architecture using Cobra:
 
-- **[main.go](main.go)**: Entry point that initializes and executes the root command
+- **[main.go](main.go)**: Entry point that embeds `example.project.yaml`, then initializes and executes the root command
 - **[pkg/components/cmd/](pkg/components/cmd/)**: All CLI command implementations
-  - `root.go`: Root command with global flags
+  - `root.go`: Root command with global flags and the pre-run that loads config and collects Git metadata
+  - `init.go`: Project scaffolding command (directories, git, go module, `.gitignore`)
   - `build.go`: Binary and image build commands
   - `generate.go`: Config, Kubernetes, and Docker Compose generation commands
   - `example.go`: Example configuration file generation command (uses `example.project.yaml` from project root via `types.ExampleProjectYAML`)
+  - `version.go`: Version information command
+  - `util_config.go`: Project/environment loading and shared state
   - `util_*.go`: Utility functions for execution, rendering, and printing
 - **[pkg/types/](pkg/types/)**: Configuration data structures and loading logic
-  - `project.go`: Project, build, and generate structures
+  - `project.go`: Project, build, and generate structures, plus image name resolution
   - `env.go`: EnvSpec with environment merging
+- **[plugins/gopro/](plugins/gopro/)**: The Claude Code plugin packaging the `gopro` skill
 
 ## Dependencies
 
@@ -370,7 +460,9 @@ Key dependencies:
 - **[framingo](https://github.com/xhanio/framingo)**: Build information and utilities
 - **[uber-go/config](https://github.com/uber-go/config)**: Configuration merging and environment overlays
 - **[gjson](https://github.com/tidwall/gjson)**: JSON path queries in templates
-- **[go-gitignore](https://github.com/sabhiram/go-gitignore)**: .gitignore parsing
+- **[go-gitignore](https://github.com/monochromegane/go-gitignore)**: .gitignore parsing
+- **[golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod)**: `go.mod` parsing to derive the module path
+- **[color](https://github.com/fatih/color)**: Colored terminal output
 
 ## Contributing
 
