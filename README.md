@@ -470,6 +470,6 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-Copyright 2025 Xi Han
+Copyright (c) 2025 Xi Han

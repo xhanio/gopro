@@ -1686,4 +1686,4 @@ For issues, questions, or contributions:
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.

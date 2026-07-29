@@ -8,6 +8,6 @@
   },
   "homepage": "https://github.com/xhanio/gopro",
   "repository": "https://github.com/xhanio/gopro",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "keywords": ["gopro", "go", "golang", "build", "codegen", "kubernetes", "docker", "skills"]
 }
