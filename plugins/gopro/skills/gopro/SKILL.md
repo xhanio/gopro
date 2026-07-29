@@ -1,10 +1,10 @@
 ---
 name: gopro
-description: Build, configure, and deploy Go projects using GoPro. Use when working with project.yaml configuration, building Go binaries, building Docker images, generating config/Kubernetes/Docker Compose templates, or initializing GoPro project structure. Activate when user mentions gopro, project.yaml, multi-environment builds, or Go project generation.
+description: Use when a project has a project.yaml or uses the gopro command; when building Go binaries or Docker images across environments; when cross-compiling for multiple platforms or setting per-target build env; when generating config, Kubernetes, or Docker Compose templates; when scaffolding a Go project structure; or when handling secret.env and config.yaml in env/ directories.
 compatibility: Requires Go, git, and optionally Docker. Install with go install github.com/xhanio/gopro@latest
 metadata:
   author: xhanio
-  version: "1.0"
+  version: "1.1"
 ---
 
 # GoPro - Go Project Generator and Build Tool
@@ -19,6 +19,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 | Initialize project | `gopro init` |
 | Build binaries | `gopro build binary -e <env>` |
 | Build Docker images | `gopro build image -e <env> --push` |
+| Push versioned tag + `:latest` | `gopro build image -e <env> --push --latest` |
 | Generate configs | `gopro generate config -e <env>` |
 | Generate K8s manifests | `gopro generate kubernetes -e <env>` |
 | Generate docker-compose | `gopro generate docker-compose -e <env>` |
@@ -27,9 +28,17 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 ### Global Flags
 
 - `-c, --config <path>` - Config file (default: `project.yaml`)
-- `-e, --environment <name>` - Target environment (local, prod, or custom)
-- `-f, --filter <regex>` - Regex filter for selective component building
+- `-e, --environment <name>` - Target environment (local, prod, or custom). Omitted = use `default` as-is
+- `-f, --filter <regex>` - Regex filter for selective component building (default: `.*`)
 - `-v, --verbose` - Debug output
+
+### Per-Command Flags
+
+- `gopro build binary`: `-o/--output`, `--product-model`, `--product-version`, `--build-version`, `--build-type`, `--build-date`
+- `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`)
+- `gopro generate`: `-x/--prefix` (template prefix, default `template.`) on all three subcommands
+- `gopro generate config`: `-o/--output` — `gopro generate kubernetes`: `-t/--output`
+- `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`
 
 ## Configuration Structure
 
@@ -63,7 +72,8 @@ default:
   docker_compose_src: env/default/docker-compose
   docker_compose_tgt: dist
 
-# Environment-specific overrides (deep-merged with default)
+# Environment-specific overrides.
+# Scalars override individually; ARRAYS ARE REPLACED WHOLESALE (see below).
 env:
   local:
     binary_build_env: [CGO_ENABLED=1]
@@ -79,8 +89,14 @@ build:
   binaries:
     - name: api
       src: cmd/api                  # Optional custom source path
-      platform: [linux/amd64, darwin/arm64]  # Optional cross-compile
       config_dir: /etc/api          # For template functions
+      build_env: [CGO_ENABLED=0]    # Optional: MERGED over binary_build_env
+      build_args: [-v]              # Optional: REPLACES binary_build_args
+      platforms:                    # Optional cross-compile targets
+        - name: linux/amd64
+        - name: linux/arm64
+          env: [CC=aarch64-linux-gnu-gcc]  # MERGED over build_env, this target only
+          args: [-v, -tags=netgo]          # REPLACES build_args, this target only
   images:
     - name: db
       build_from: postgres:13       # Pull and tag existing image
@@ -99,6 +115,98 @@ generate:
   docker_compose:
     files: ["docker-compose.yaml"]
 ```
+
+## Important: Two Merge Layers That Behave Oppositely
+
+Build settings pass through two independent layers. Mixing them up is the most
+common source of silently wrong builds.
+
+**Layer 1 — `default` → `env.<name>` (inside project.yaml): arrays are REPLACED.**
+
+Scalars (`binary_src`, `image_tag`, …) override individually and uninvolved keys
+are inherited. But any array an environment sets replaces its `default`
+counterpart entirely:
+
+```yaml
+default:
+  binary_build_env: [GOOS=linux, GOARCH=amd64, CGO_ENABLED=0]
+env:
+  local:
+    binary_build_env: [CGO_ENABLED=1]   # GOOS and GOARCH are now GONE
+```
+
+`gopro build binary -e local` here builds with **only** `CGO_ENABLED=1`. Anything
+still needed must be restated in full:
+
+```yaml
+env:
+  local:
+    binary_build_env: [GOOS=linux, GOARCH=amd64, CGO_ENABLED=1]
+```
+
+This is easy to miss because it is invisible on a host that already matches the
+dropped `GOOS`/`GOARCH`.
+
+**Layer 2 — `binary_build_env` → binary `build_env` → platform `env` (at build time): MERGED key-wise.**
+
+Each level overrides only the variables it names and inherits the rest. The
+parallel `binary_build_args` → `build_args` → `args` chain **replaces** instead,
+because Go build flags are positional and repeatable, so a key-wise merge could
+not tell an override from an accumulation. Only an unset level inherits — an
+explicit `[]` therefore means "build with no arguments at all".
+
+| Setting | `default` → `env` | env → binary → platform |
+|---------|-------------------|--------------------------|
+| `*_build_env` / `build_env` / `env` | replaced | **merged key-wise** |
+| `*_build_args` / `build_args` / `args` | replaced | replaced (most specific set wins) |
+
+### YAML anchors cannot extend an array
+
+There is no sequence-splice in YAML. Aliasing a list as a list *item* nests it
+and the config fails to load with `cannot unmarshal !!seq into string`:
+
+```yaml
+# BROKEN — do not do this
+binary_build_args:
+  - *default_args     # inserts a LIST as one element
+  - -ldflags
+```
+
+To extend build args for one environment, restate the list. To layer them
+without duplication, use Layer 2 instead — put invariant settings on the binary
+spec and let the environment vary only what changes.
+
+## Cross-Compiling With Per-Target Settings
+
+Use `platforms:` when a target needs its own environment or flags. This builds
+every target in a single `gopro build binary` run:
+
+```yaml
+default:
+  binary_build_env: [CGO_ENABLED=1]     # reaches every target
+
+build:
+  binaries:
+    - name: api
+      platforms:
+        - name: linux/amd64             # inherits CGO_ENABLED=1, nothing else
+        - name: linux/arm64
+          env: [CC=aarch64-linux-gnu-gcc]   # scoped to arm64 ONLY
+```
+
+Do **not** model per-target settings as separate environments — that requires one
+`gopro build binary` invocation per target and duplicates every unrelated
+setting. `platforms:` exists for exactly this.
+
+Key behaviors:
+- A **host binary is always built first**, named `{name}` with no `GOOS`/`GOARCH`
+  pinned, in addition to one `{name}_{GOOS}_{GOARCH}` per platform. There is no
+  flag to suppress it.
+- `GOOS`/`GOARCH` derived from the platform name outrank any set in `build_env`.
+- The flat `platform: [linux/amd64, darwin/arm64]` form is **deprecated** but
+  still honored and folded into `platforms`. A name in both keeps its first-seen
+  position and takes the `platforms` entry, so the two can be mixed without
+  building twice. Move a target to `platforms` as soon as it needs `env` or `args`.
 
 ## Important: Use `config.yaml` and `secret.env`, Not `.env`
 
@@ -140,7 +248,8 @@ Templates use `[[` and `]]` delimiters (not `{{ }}`). Files prefixed with `templ
 ```
 .Name      - Component name (string)
 .Project   - Full project config (types.Project)
-.Env       - Current environment config (types.EnvSpec)
+.EnvName   - Selected environment name, "" when -e was not given (string)
+.Env       - Current environment config (types.EnvSpec), default merged with the selected env
 ```
 
 ### Built-in Functions
@@ -150,6 +259,7 @@ Templates use `[[` and `]]` delimiters (not `{{ }}`). Files prefixed with `templ
 | `GetEnvKey` | `[[ GetEnvKey "DB_URL" ]]` | Env var with product prefix (e.g. `MYAPP_DB_URL`) |
 | `GetConfigDir` | `[[ GetConfigDir "api" ]]` | Config directory from binary spec |
 | `GetImageName` | `[[ GetImageName "api" ]]` | Full image name: `prefix/repo:tag` |
+| `GetImageNameWithTag` | `[[ GetImageNameWithTag "api" "stable" ]]` | Same, with an explicit tag instead of the configured one |
 | `FromFile` | `[[ FromFile "/path/to/file" ]]` | Read file contents |
 | `FromConfigFile` | `[[ FromConfigFile "api" "db.conf" ]]` | Read from generated config dir |
 | `FromConfigJSON` | `[[ FromConfigJSON "api" "config.json" "db.host" ]]` | Extract JSON value by path |
@@ -213,11 +323,27 @@ cd dist/local && docker-compose up
 ```bash
 git tag v1.0.0 && git push --tags
 gopro build binary -e prod
-gopro build image -e prod --push
+gopro build image -e prod --push --latest    # pushes :v1.0.0 and :latest
 gopro generate config -e prod
 gopro generate kubernetes -e prod
 kubectl apply -f dist/prod/kubernetes/
 ```
+
+### Publishing a Moving `:latest` Alongside the Version
+
+`--latest` (`-l`) tags the freshly built image as `:latest` and pushes that too,
+so one run publishes both references. Never reach for manual `docker tag` /
+`docker push`, and never create a duplicate environment that differs only in
+`image_tag` — both are unnecessary:
+
+```bash
+gopro build image -e prod --push --latest
+# pushes registry/myapp/api:v1.0.0, then tags and pushes registry/myapp/api:latest
+```
+
+The extra tag is skipped when the image already builds as `:latest`, so nothing
+is pushed twice. `--latest` requires `--push`; alone it warns and does nothing.
+Images with `no_push: true` are skipped entirely.
 
 ### Generate Dependencies Order
 
@@ -290,7 +416,10 @@ The injected fields include: `ProductName`, `ProductVersion`, `BuildVersion`, `B
 - **Config not found**: Run `gopro example` or use `-c path/to/config.yaml`
 - **Git info error**: Initialize git (`git init && git add . && git commit -m "init"`)
 - **Template render error**: Check dependency order (configs before K8s), verify file paths
-- **Cross-compile CGO error**: Set `CGO_ENABLED=0` in environment's `binary_build_env`
+- **Cross-compile CGO error**: Either set `CGO_ENABLED=0` to drop cgo entirely, or keep `CGO_ENABLED=1` and supply a cross compiler per target via `platforms[].env` (e.g. `CC=aarch64-linux-gnu-gcc`) — the toolchain must exist on the build host
+- **`cannot unmarshal !!seq into string`**: A YAML alias was spliced into an array. Restate the list; anchors cannot concatenate sequences
+- **Env var set in `default` went missing**: An `env.<name>` override replaced the whole array. Restate every value it still needs
 - **Dockerfile not found**: Verify `build_src` or `image_build_src` paths contain a Dockerfile
 - **Empty version info**: Binary was built with `go build` instead of `gopro build binary`
-- Use `-v` (verbose) flag on any command for detailed debug output
+- **Generated output missing old files**: Expected — config and Kubernetes target directories are wiped before each render
+- Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line
