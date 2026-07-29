@@ -124,36 +124,41 @@ type renderContext struct {
 }
 
 func render(name, srcDir, dstDir, prefix string, patterns []string) error {
-	err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
-		srcFile, er := filepath.Rel(srcDir, path)
+	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, er := filepath.Rel(srcDir, path)
 		if er != nil {
 			return er
 		}
-		dstFile := filepath.Join(dstDir, srcFile)
-		if after, ok := strings.CutPrefix(d.Name(), prefix); ok {
-			srcFile = filepath.Join(filepath.Dir(srcFile), after)
+		// The template prefix names the file, not the directory holding it, so
+		// only the base name is stripped and the rest of the relative path
+		// carries through. One output path drives both the pattern match and
+		// the write, so a template keeps the subdirectory it was authored in
+		// instead of landing in the output root on top of its siblings.
+		outRel, templated := rel, false
+		if !d.IsDir() {
+			if after, ok := strings.CutPrefix(d.Name(), prefix); ok {
+				outRel = filepath.Join(filepath.Dir(rel), after)
+				templated = true
+			}
 		}
-		ok, er := matches(srcFile, patterns...)
+		ok, er := matches(outRel, patterns...)
 		if er != nil {
 			return er
 		}
-		if !ok {
-			return nil
-		}
-		er = os.MkdirAll(filepath.Dir(dstFile), 0755)
-		if er != nil {
-			return er
-		}
-		if d.IsDir() {
+		if !ok || d.IsDir() {
+			// Directories are not created up front; a file creates its own
+			// parents below, so an excluded subtree leaves nothing behind.
 			return nil
 		}
 		b, er := os.ReadFile(path)
 		if er != nil {
 			return er
 		}
-		if after, ok := strings.CutPrefix(d.Name(), prefix); ok {
-			dstFile = filepath.Join(dstDir, after)
-			linef("render %s from %s", after, path)
+		if templated {
+			linef("render %s from %s", outRel, path)
 			t, er := template.New(d.Name()).Delims("[[", "]]").Funcs(funcMap()).Parse(string(b))
 			if er != nil {
 				return er
@@ -170,16 +175,12 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 			}
 			b = buffer.Bytes()
 		} else {
-			linef("copy %s from %s", d.Name(), path)
+			linef("copy %s from %s", outRel, path)
 		}
-		er = os.WriteFile(dstFile, b, 0644)
-		if er != nil {
+		dstFile := filepath.Join(dstDir, outRel)
+		if er := os.MkdirAll(filepath.Dir(dstFile), 0755); er != nil {
 			return er
 		}
-		return nil
+		return os.WriteFile(dstFile, b, 0644)
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
