@@ -268,12 +268,17 @@ vars on the binary spec and let `env.{name}` vary only what changes.
 
 ## Template Rendering Pipeline
 
-1. Remove the component's target directory (config and Kubernetes only — not docker-compose)
-2. Scan source directory for files matching `files` patterns; an empty or absent `files` list processes everything
-3. For files with `template.` prefix: render as Go template, strip prefix
-4. For other files: copy as-is
-5. Default layer renders first, then environment layer overlays
-6. Templates use `[[` `]]` delimiters, receive `{Name, Project, EnvName, Env}` context
+1. Resolve the target from `-o`/`-t`, then `*_tgt`, then `*_src` — an unset target renders the component in place, beside its templates
+2. Remove the component's target directory (config and Kubernetes only — not docker-compose), unless it overlaps a template source, which is the in-place case: clearing it would delete the templates about to be read, so existing files are left alone
+3. Scan source directory for files matching `files` patterns; an empty or absent `files` list processes everything
+4. For files with `template.` prefix: render as Go template, strip the prefix from the file name only — the subdirectory is part of the output path
+5. For other files: copy as-is
+6. Default layer renders first, then environment layer overlays
+7. Templates use `[[` `]]` delimiters, receive `{Name, Project, EnvName, Env}` context
+
+A `files` pattern without a separator matches by base name at any depth, so
+`*.yaml` selects `sub/config.yaml` too. A pattern containing one is matched
+against the whole relative path, keeping `cert/*` scoped to `cert/`.
 
 Because step 1 wipes the target, generated output is always a clean reflection of
 the sources; stale files from a previous run never survive. `gopro generate

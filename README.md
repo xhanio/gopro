@@ -287,11 +287,12 @@ gopro generate config -f "api.*"       # Generate specific configs
 ```
 
 Additional flags:
-- `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`)
+- `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`, then to `config_src` for an in-place render)
 - `-x, --prefix <prefix>`: Template file prefix (default: `template.`) — available on all `generate` subcommands
 
 Each config's target directory is removed before rendering, so generated output
-is always a clean reflection of the sources.
+is a clean reflection of the sources — except for an in-place render, where the
+target is a template source and is left alone.
 
 #### Generate Kubernetes Manifests
 
@@ -302,9 +303,10 @@ gopro generate kubernetes -f "api.*"   # Generate specific manifests
 ```
 
 Additional flags:
-- `-t, --output <path>`: Specify custom output directory (defaults to `kubernetes_tgt`)
+- `-t, --output <path>`: Specify custom output directory (defaults to `kubernetes_tgt`, then to `kubernetes_src` for an in-place render)
 
-As with configs, each template's target directory is removed before rendering.
+As with configs, each template's target directory is removed before rendering,
+unless the render is in place.
 
 #### Generate Docker Compose
 
@@ -351,7 +353,18 @@ clear the target directory.
 - **File filtering**:
   - Use `files` array with glob patterns in configuration
   - Example: `["*.yaml", "*.json"]` to process only specific file types
+  - A pattern without a `/` matches by file name at any depth, so `*.yaml` also selects `sub/config.yaml`; a pattern containing one is matched against the whole relative path, so `cert/*` stays scoped to `cert/`
   - Useful for excluding sensitive files or controlling what gets generated
+
+- **Directory structure preserved**: A template keeps the subdirectory it was
+  authored in — `sub/template.config.yaml` renders to `sub/config.yaml`, not to
+  the output root
+
+- **In-place rendering**: With `config_tgt` (or `kubernetes_tgt`) unset, output
+  lands beside the templates it came from — `template.config.yaml` renders to
+  `config.yaml` in the same directory. A distinct target is cleared before each
+  render; an in-place one is not, since its inputs and outputs share a
+  directory and clearing it would delete the templates
 
 ## Examples
 

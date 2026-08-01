@@ -422,4 +422,5 @@ The injected fields include: `ProductName`, `ProductVersion`, `BuildVersion`, `B
 - **Dockerfile not found**: Verify `build_src` or `image_build_src` paths contain a Dockerfile
 - **Empty version info**: Binary was built with `go build` instead of `gopro build binary`
 - **Generated output missing old files**: Expected — config and Kubernetes target directories are wiped before each render
+- **Stale files persist in an in-place render**: With `config_tgt`/`kubernetes_tgt` unset, output goes beside the templates, so the target is not cleared first — clearing it would delete the templates. Set a distinct target (e.g. `dist/`) to get a clean render every time
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line

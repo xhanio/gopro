@@ -517,8 +517,10 @@ gopro generate config -x "tmpl."
 #### How It Works
 
 1. **Clean Target**: The config's target directory is removed before rendering,
-   so output is always a clean reflection of the sources — never a mix with
-   files left over from a previous run
+   so output is a clean reflection of the sources rather than a mix with files
+   left over from a previous run. The exception is an in-place render, where
+   the target overlaps a template source — there the directory is left alone,
+   because clearing it would delete the templates about to be read
 
 2. **Two-Layer Rendering**:
    - First: Renders default templates from `default.config_src/config_name/`
@@ -604,8 +606,9 @@ gopro generate kubernetes -t ./k8s-manifests
 gopro generate kubernetes -f "^api$"
 ```
 
-As with configs, each template's target directory is removed before rendering,
-and the default layer renders first with the environment layer overlaid on top.
+As with configs, each template's target directory is removed before rendering
+(except for an in-place render), and the default layer renders first with the
+environment layer overlaid on top.
 
 #### Configuration Example
 
@@ -1501,7 +1504,19 @@ Error: product name is required in project.yaml configuration
 product: myapp
 ```
 
-#### 8. Module Path Not Found
+#### 8. Stale Files Left in the Output Directory
+
+Generation normally clears a component's target directory first, so output
+reflects only current sources. It deliberately does **not** do so when the
+target overlaps a template source — the in-place case, where clearing would
+delete the templates about to be rendered.
+
+**Solution**: If you want every render to start clean, set `config_tgt` (or
+`kubernetes_tgt`) to a directory separate from `config_src`, such as `dist/`.
+Leaving the target unset is a supported layout, not an error; it just means old
+output persists alongside the templates.
+
+#### 9. Module Path Not Found
 
 If the module path cannot be resolved, set it explicitly:
 ```yaml
