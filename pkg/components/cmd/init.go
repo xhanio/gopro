@@ -150,11 +150,16 @@ func createDirectoryIfNotExists(env, dirPath string) error {
 // createOrUpdateGitignore creates .gitignore file if it doesn't exist, or updates it with missing entries
 func createOrUpdateGitignore() error {
 	gitignorePath := ".gitignore"
-	requiredEntries := map[string]bool{
-		"bin/":       true,
-		"dist/":      true,
-		"test/":      true,
-		"secret.env": false,
+	// Ordered rather than a map so repeated runs append the same way and the
+	// resulting diff is reviewable.
+	requiredEntries := []struct {
+		path  string
+		isDir bool
+	}{
+		{"bin/", true},
+		{"dist/", true},
+		{"test/", true},
+		{"secret.env", false},
 	}
 	linef("managing .gitignore file")
 	// check if .gitignore exists, create if it doesn't
@@ -174,11 +179,11 @@ func createOrUpdateGitignore() error {
 	}
 	// find missing entries by checking if they would be ignored
 	var missingEntries []string
-	for requiredEntry, isDir := range requiredEntries {
+	for _, required := range requiredEntries {
 		// use the Ignore() method to check if this entry would be matched
 		// if it's not ignored by existing patterns, we need to add it
-		if !ignore.Match(requiredEntry, isDir) {
-			missingEntries = append(missingEntries, requiredEntry)
+		if !ignore.Match(required.path, required.isDir) {
+			missingEntries = append(missingEntries, required.path)
 		}
 	}
 	// add missing entries if any
@@ -186,11 +191,23 @@ func createOrUpdateGitignore() error {
 		debugf("all required entries are already covered by .gitignore")
 		return nil
 	}
+	existing, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		return err
+	}
 	file, err := os.OpenFile(gitignorePath, os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	// A .gitignore that doesn't end in a newline would otherwise have its last
+	// rule fused with the first entry appended below, destroying that rule and
+	// losing the entry with it.
+	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
+		if _, err := file.WriteString("\n"); err != nil {
+			return err
+		}
+	}
 	var errs []error
 	for _, entry := range missingEntries {
 		_, err := file.WriteString(entry + "\n")
