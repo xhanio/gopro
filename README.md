@@ -67,7 +67,7 @@ initializes a Git repository and Go module if they are missing, and adds
 GoPro uses a YAML-based configuration file (`project.yaml`) with the following structure:
 
 - **product**: Product name, required (also used as the environment variable prefix)
-- **model**, **version**, **domain**, **module**: Optional project metadata; `module` is read from `go.mod` when unset, and `version` falls back to the current Git tag
+- **model**, **version**, **domain**, **module**: Optional project metadata; `module` is read from `go.mod` when unset, and `version` falls back to the current Git tag. `model` is currently parsed but never read — only `gopro build binary --product-model` sets the injected `ProductModel`
 - **default**: Base configuration shared across all environments
 - **env**: Environment-specific overrides (local, prod, custom)
 - **build**: Binary and Docker image build specifications

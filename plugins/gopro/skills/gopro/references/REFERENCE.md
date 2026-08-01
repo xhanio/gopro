@@ -7,7 +7,7 @@
 | Field | Required | Description |
 |-------|----------|-------------|
 | `product` | Yes | Product name, used for env var prefixes and metadata |
-| `model` | No | Product model identifier |
+| `model` | No | Product model identifier. **Parsed but never read** — it does not reach `info.ProductModel`, which only `--product-model` sets. Setting it has no effect |
 | `version` | No | Product version string |
 | `domain` | No | Domain name |
 | `module` | No | Go module path (auto-detected from go.mod) |
@@ -147,11 +147,29 @@ differs only in `image_tag`.
 
 ## Build Metadata Injection
 
-GoPro injects metadata into binaries via `-ldflags` using the framingo package:
+`gopro build binary` injects thirteen fields into the binary via `-ldflags`,
+setting package vars on `github.com/xhanio/framingo/pkg/types/info`. A raw
+`go build` sets none of them, leaving every field empty.
 
-- Git: branch, tag, commit hash
-- Build: time, version, type
-- Product: name, model, version
+| Field | Value |
+|-------|-------|
+| `ProductName` | `product` from project.yaml |
+| `ProductModel` | `--product-model` only; no project.yaml field feeds it |
+| `ProductVersion` | `version` from project.yaml, falling back to `BuildVersion`; or `--product-version` |
+| `BuildVersion` | The Git tag, or `--build-version` |
+| `BuildType` | `--build-type` only |
+| `BuildDate` | `--build-date` only |
+| `BuildTime` | Time of the build, RFC3339 |
+| `GitBranch` | `git rev-parse --abbrev-ref HEAD` |
+| `GitTag` | `git describe --tags --always` |
+| `GitCommit` | `git rev-parse HEAD` |
+| `ProjectName` | The Go module path |
+| `ProjectPath` | Project directory relative to `$GOPATH/src` |
+| `ProjectRoot` | Absolute working directory of the build |
+
+The three Git values are best-effort: outside a repository the build still
+succeeds and they arrive empty. `ProductModel`, `BuildType`, and `BuildDate`
+have no project.yaml equivalent — a flag is the only way to set them.
 
 Access in Go code:
 

@@ -47,7 +47,7 @@ The `project.yaml` file has four main sections:
 ```yaml
 # Top-level metadata
 product: myapp              # Required
-model: standard             # Optional
+model: standard             # Optional; parsed but inert — see note below
 version: v1.0.0             # Optional
 domain: example.com         # Optional
 module: github.com/user/app # Auto-detected from go.mod
@@ -114,6 +114,18 @@ generate:
       files: ["deployment.yaml", "service.yaml"]
   docker_compose:
     files: ["docker-compose.yaml"]
+```
+
+## Important: `model` Is Parsed but Inert
+
+The top-level `model:` field loads into the config and is then never read.
+It does **not** reach `info.ProductModel`; only the `--product-model` flag
+sets that. A project relying on `model:` for build metadata gets an empty
+value at runtime with no warning.
+
+```bash
+# model: rackmount in project.yaml  ->  info.ProductModel=
+gopro build binary --product-model rackmount   # the only way to set it
 ```
 
 ## Important: Two Merge Layers That Behave Oppositely
@@ -409,7 +421,13 @@ gopro build binary -e local
 go build -o myapp ./cmd/myapp
 ```
 
-The injected fields include: `ProductName`, `ProductVersion`, `BuildVersion`, `BuildType`, `BuildDate`, `BuildTime`, `GitBranch`, `GitTag`, `ProjectName`, `ProjectPath`, and `ProjectRoot`. These are set on `github.com/xhanio/framingo/pkg/types/info` package vars and can be accessed at runtime (e.g., via `gopro version`).
+Thirteen fields are injected: `ProductName`, `ProductModel`, `ProductVersion`,
+`BuildVersion`, `BuildType`, `BuildDate`, `BuildTime`, `GitBranch`, `GitTag`,
+`GitCommit`, `ProjectName`, `ProjectPath`, and `ProjectRoot`. They are set on
+`github.com/xhanio/framingo/pkg/types/info` package vars and readable at runtime
+(e.g. via `gopro version`). The `--product-model`, `--product-version`,
+`--build-version`, `--build-type`, and `--build-date` flags each override the
+matching field. See `references/REFERENCE.md` for where every value comes from.
 
 ## Troubleshooting
 
