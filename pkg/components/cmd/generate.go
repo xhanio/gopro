@@ -36,8 +36,9 @@ func NewGenerateConfigCmd() *cobra.Command {
 }
 
 func runGenerateConfig(cmd *cobra.Command, args []string) error {
-	if configOutput == "" {
-		configOutput = env.ConfigTgt
+	out := configOutput
+	if out == "" {
+		out = env.ConfigTgt
 	}
 	for _, name := range env.Configs {
 		if !filterRegex.MatchString(name) {
@@ -47,17 +48,25 @@ func runGenerateConfig(cmd *cobra.Command, args []string) error {
 			if name != config.Name {
 				continue
 			}
-			// generate config
-			if configOutput == "" {
-				configOutput = env.ConfigSrc
+			// generate config. With no target configured the output lands
+			// beside the templates, rendering the component in place. Resolved
+			// per component into a local so the fallback cannot leak from one
+			// to the next.
+			dst := out
+			if dst == "" {
+				dst = env.ConfigSrc
 			}
-			configDst := filepath.Join(configOutput, config.Name)
-			if err := os.RemoveAll(configDst); err != nil {
+			configDst := filepath.Join(dst, config.Name)
+			// The directories the render reads from, not the roots they came
+			// from: an unset config_src still resolves to a real directory
+			// here, and that is exactly the case the guard must catch.
+			defaultConfigSrc := filepath.Join(project.Default.ConfigSrc, config.Name)
+			envConfigSrc := filepath.Join(env.ConfigSrc, config.Name)
+			if err := clearTarget(configDst, defaultConfigSrc, envConfigSrc); err != nil {
 				return err
 			}
 			patterns := config.Files
 			// render default config
-			defaultConfigSrc := filepath.Join(project.Default.ConfigSrc, config.Name)
 			if fi, err := os.Stat(defaultConfigSrc); err == nil && fi.IsDir() {
 				titlef("Generate config %s from %s", config.Name, defaultConfigSrc)
 				if err := render(config.Name, defaultConfigSrc, configDst, prefix, patterns); err != nil {
@@ -65,7 +74,6 @@ func runGenerateConfig(cmd *cobra.Command, args []string) error {
 				}
 			}
 			// render env config
-			envConfigSrc := filepath.Join(env.ConfigSrc, config.Name)
 			if fi, err := os.Stat(envConfigSrc); err == nil && fi.IsDir() {
 				titlef("Generate config %s from %s", config.Name, envConfigSrc)
 				if err := render(config.Name, envConfigSrc, configDst, prefix, patterns); err != nil {
@@ -87,8 +95,9 @@ func NewGenerateKubernetesCmd() *cobra.Command {
 }
 
 func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
-	if kubernetesOutput == "" {
-		kubernetesOutput = env.KubernetesTgt
+	out := kubernetesOutput
+	if out == "" {
+		out = env.KubernetesTgt
 	}
 	for _, name := range env.KubernetesTemplates {
 		if !filterRegex.MatchString(name) {
@@ -98,17 +107,20 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 			if name != template.Name {
 				continue
 			}
-			// generate kubernetes template
-			if kubernetesOutput == "" {
-				kubernetesOutput = env.KubernetesSrc
+			// generate kubernetes template. As with configs, an unset target
+			// renders the component in place beside its templates.
+			dst := out
+			if dst == "" {
+				dst = env.KubernetesSrc
 			}
-			kubernetesDst := filepath.Join(kubernetesOutput, template.Name)
-			if err := os.RemoveAll(kubernetesDst); err != nil {
+			kubernetesDst := filepath.Join(dst, template.Name)
+			defaultKubernetesSrc := filepath.Join(project.Default.KubernetesSrc, template.Name)
+			envKubernetesSrc := filepath.Join(env.KubernetesSrc, template.Name)
+			if err := clearTarget(kubernetesDst, defaultKubernetesSrc, envKubernetesSrc); err != nil {
 				return err
 			}
 			patterns := template.Files
 			// render default kubernetes template
-			defaultKubernetesSrc := filepath.Join(project.Default.KubernetesSrc, template.Name)
 			if fi, err := os.Stat(defaultKubernetesSrc); err == nil && fi.IsDir() {
 				titlef("Generate kubernetes template %s from %s", template.Name, defaultKubernetesSrc)
 				if err := render(template.Name, defaultKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
@@ -116,7 +128,6 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 				}
 			}
 			// render env kubernetes template
-			envKubernetesSrc := filepath.Join(env.KubernetesSrc, template.Name)
 			if fi, err := os.Stat(envKubernetesSrc); err == nil && fi.IsDir() {
 				titlef("Generate kubernetes template %s from %s", template.Name, envKubernetesSrc)
 				if err := render(template.Name, envKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
