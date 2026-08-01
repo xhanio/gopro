@@ -159,14 +159,21 @@ gopro init -c custom.yaml  # Use custom config file
 
 ```
 initializing project directories
-- initializing git repository
-- initializing go module
-- create directories build/binary/api for environment default successfully
-- create directories env/local/config/api for environment local successfully
-- managing .gitignore file
-- added to .gitignore: bin/
-- added to .gitignore: dist/
+initializing git repository
+initializing go module
+create directories bin/ for environment default successfully
+create directories build/binary for environment default successfully
+create directories build/binary/api for environment default successfully
+managing .gitignore file
+.gitignore file created
+added to .gitignore: bin/
+added to .gitignore: dist/
+added to .gitignore: test/
+added to .gitignore: secret.env
 ```
+
+The git and go-module lines appear only when those are missing. Entries are
+appended in a fixed order, so repeated runs and diffs stay stable.
 
 ### version Command
 
@@ -1431,25 +1438,30 @@ gopro example                              # Generate example project.yaml
 gopro build binary -c /path/to/project.yaml  # Or specify a path
 ```
 
-#### 3. Git Repository Required
+#### 3. Empty Git Metadata in a Build
 
-```
-Error: failed to get git information
-```
+Git information is collected on a best-effort basis: outside a repository, or
+with `git` unavailable, commands still succeed and simply inject empty
+`GitTag`, `GitBranch`, and `GitCommit` values. There is no error — the symptom
+is a binary whose `gopro version` and `info.Git*` fields come back blank, and a
+`version` that falls back to empty because it derives from the Git tag.
 
-**Solution**: Initialize Git repository:
+**Solution**: Initialize a Git repository and create at least one commit, so
+`git describe --tags --always` has something to report:
 ```bash
 git init
 git add .
 git commit -m "Initial commit"
 ```
 
-Or run `gopro init` which does this automatically.
+Or run `gopro init`, which initializes the repository for you.
 
 #### 4. Template Rendering Error
 
 ```
-Error: failed to render from secret.env: no such file or directory
+Error: template: template.config.yaml:1:6: executing "template.config.yaml" at
+<FromSecretEnv "api" "DB_PASS">: error calling FromSecretEnv: failed to render
+from api secret.env: open env/default/config/api/secret.env: no such file or directory
 ```
 
 **Solution**: Ensure `secret.env` exists in the source config directory (e.g., `env/default/config/api/secret.env`). `FromSecretEnv` reads directly from the source directory, not from `dist/`. Also ensure configs are generated before kubernetes if k8s templates reference config files:
@@ -1460,8 +1472,11 @@ gopro generate kubernetes -e prod
 
 #### 5. Docker Build Failures
 
+The message comes from Docker itself; GoPro reports only the exit status:
+
 ```
-Error: failed to build image: Dockerfile not found
+ERROR: failed to build: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+Error: exit status 1
 ```
 
 **Solution**: Verify Dockerfile location matches configuration:
@@ -1481,17 +1496,31 @@ docker/
 
 #### 6. Cross-Compilation Issues
 
-```
-Error: C compiler not found (CGO)
-```
+Cross-compiling with `CGO_ENABLED=1` requires a C toolchain for the target.
+When one is missing the failure comes from the Go toolchain or the C compiler,
+not from GoPro — typically a `cc`/`gcc` "command not found", or an error about
+building a cgo package for the target platform.
 
-**Solution**: Disable CGO for cross-compilation:
+**Solution**: Either drop cgo for the cross-compiled targets:
 ```yaml
 env:
   prod:
     binary_build_env:
       - CGO_ENABLED=0
 ```
+
+Or keep cgo and point each target at its own cross compiler, which is what
+per-platform `env` exists for:
+```yaml
+build:
+  binaries:
+    - name: api
+      build_env: [CGO_ENABLED=1]
+      platforms:
+        - name: linux/arm64
+          env: [CC=aarch64-linux-gnu-gcc]
+```
+The named toolchain must be installed on the build host.
 
 #### 7. Product Name Missing
 

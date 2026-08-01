@@ -414,13 +414,13 @@ The injected fields include: `ProductName`, `ProductVersion`, `BuildVersion`, `B
 ## Troubleshooting
 
 - **Config not found**: Run `gopro example` or use `-c path/to/config.yaml`
-- **Git info error**: Initialize git (`git init && git add . && git commit -m "init"`)
+- **Blank git metadata**: Not an error — git info is best-effort, so outside a repository commands still succeed and inject empty `GitTag`/`GitBranch`/`GitCommit`. Initialize git and make a commit (`git init && git add . && git commit -m "init"`) so `git describe --tags --always` has something to report
 - **Template render error**: Check dependency order (configs before K8s), verify file paths
 - **Cross-compile CGO error**: Either set `CGO_ENABLED=0` to drop cgo entirely, or keep `CGO_ENABLED=1` and supply a cross compiler per target via `platforms[].env` (e.g. `CC=aarch64-linux-gnu-gcc`) — the toolchain must exist on the build host
 - **`cannot unmarshal !!seq into string`**: A YAML alias was spliced into an array. Restate the list; anchors cannot concatenate sequences
 - **Env var set in `default` went missing**: An `env.<name>` override replaced the whole array. Restate every value it still needs
 - **Dockerfile not found**: Verify `build_src` or `image_build_src` paths contain a Dockerfile
 - **Empty version info**: Binary was built with `go build` instead of `gopro build binary`
-- **Generated output missing old files**: Expected — config and Kubernetes target directories are wiped before each render
-- **Stale files persist in an in-place render**: With `config_tgt`/`kubernetes_tgt` unset, output goes beside the templates, so the target is not cleared first — clearing it would delete the templates. Set a distinct target (e.g. `dist/`) to get a clean render every time
+- **Generated output missing old files**: Expected when `config_tgt`/`kubernetes_tgt` names a directory of its own — it is wiped before each render so output reflects only current sources
+- **Stale files persist instead**: The opposite case, an in-place render. With `config_tgt`/`kubernetes_tgt` unset the output goes beside the templates, so the target is *not* cleared — clearing it would delete the templates. Set a distinct target (e.g. `dist/`) for a clean render every time
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line
