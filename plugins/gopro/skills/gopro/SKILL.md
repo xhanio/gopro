@@ -4,7 +4,7 @@ description: Use when a project has a project.yaml or uses the gopro command; wh
 compatibility: Requires Go, git, and optionally Docker. Install with go install github.com/xhanio/gopro@latest
 metadata:
   author: xhanio
-  version: "1.1"
+  version: "1.1.0" # mirrors plugin.json; bump both together
 ---
 
 # GoPro - Go Project Generator and Build Tool
