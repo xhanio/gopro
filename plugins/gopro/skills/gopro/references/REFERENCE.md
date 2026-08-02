@@ -7,7 +7,7 @@
 | Field | Required | Description |
 |-------|----------|-------------|
 | `product` | Yes | Product name, used for env var prefixes and metadata |
-| `model` | No | Product model identifier. **Parsed but never read** — it does not reach `info.ProductModel`, which only `--product-model` sets. Setting it has no effect |
+| `model` | No | Product model identifier; sets `info.ProductModel` |
 | `version` | No | Product version string |
 | `domain` | No | Domain name |
 | `module` | No | Go module path (auto-detected from go.mod) |
@@ -154,7 +154,7 @@ setting package vars on `github.com/xhanio/framingo/pkg/types/info`. A raw
 | Field | Value |
 |-------|-------|
 | `ProductName` | `product` from project.yaml |
-| `ProductModel` | `--product-model` only; no project.yaml field feeds it |
+| `ProductModel` | `model` from project.yaml; or `--product-model` |
 | `ProductVersion` | `version` from project.yaml, falling back to `BuildVersion`; or `--product-version` |
 | `BuildVersion` | The Git tag, or `--build-version` |
 | `BuildType` | `--build-type` only |
@@ -168,8 +168,8 @@ setting package vars on `github.com/xhanio/framingo/pkg/types/info`. A raw
 | `ProjectRoot` | Absolute working directory of the build |
 
 The three Git values are best-effort: outside a repository the build still
-succeeds and they arrive empty. `ProductModel`, `BuildType`, and `BuildDate`
-have no project.yaml equivalent — a flag is the only way to set them.
+succeeds and they arrive empty. `BuildType` and `BuildDate` have no project.yaml
+equivalent — a flag is the only way to set them.
 
 Access in Go code:
 

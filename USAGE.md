@@ -749,7 +749,7 @@ The `project.yaml` file is the central configuration for GoPro.
 
 ```yaml
 product: myapp                 # Product name (required); also the env var prefix
-model: standard                # Product model (optional; parsed but never read — see below)
+model: standard                # Product model (optional); sets info.ProductModel
 version: v1.0.0                # Product version (optional; falls back to the Git tag)
 domain: example.com            # Domain name (optional)
 module: github.com/user/myapp  # Go module name (optional; read from go.mod when unset)
@@ -757,10 +757,6 @@ module: github.com/user/myapp  # Go module name (optional; read from go.mod when
 
 The field is `module`, not `project`. When it is omitted, GoPro reads the module
 path from the `go.mod` sitting next to `project.yaml`.
-
-`model` is accepted by the parser but never read: it does not reach
-`info.ProductModel`, which only `gopro build binary --product-model` sets.
-Setting it in `project.yaml` has no effect on the built binary.
 
 ### Default Configuration
 

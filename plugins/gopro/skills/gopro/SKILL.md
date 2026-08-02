@@ -47,7 +47,7 @@ The `project.yaml` file has four main sections:
 ```yaml
 # Top-level metadata
 product: myapp              # Required
-model: standard             # Optional; parsed but inert — see note below
+model: standard             # Optional; sets info.ProductModel
 version: v1.0.0             # Optional
 domain: example.com         # Optional
 module: github.com/user/app # Auto-detected from go.mod
@@ -114,18 +114,6 @@ generate:
       files: ["deployment.yaml", "service.yaml"]
   docker_compose:
     files: ["docker-compose.yaml"]
-```
-
-## Important: `model` Is Parsed but Inert
-
-The top-level `model:` field loads into the config and is then never read.
-It does **not** reach `info.ProductModel`; only the `--product-model` flag
-sets that. A project relying on `model:` for build metadata gets an empty
-value at runtime with no warning.
-
-```bash
-# model: rackmount in project.yaml  ->  info.ProductModel=
-gopro build binary --product-model rackmount   # the only way to set it
 ```
 
 ## Important: Two Merge Layers That Behave Oppositely

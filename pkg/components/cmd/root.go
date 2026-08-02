@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xhanio/framingo/pkg/types/info"
+
+	"github.com/xhanio/gopro/pkg/types"
 )
 
 var (
@@ -18,6 +20,22 @@ var (
 	filter      string
 	filterRegex *regexp.Regexp
 )
+
+// applyProjectInfo copies project.yaml metadata onto the framingo info package
+// vars, which are what the -ldflags injection reads at build time.
+func applyProjectInfo(p types.Project) {
+	info.ProjectName = p.Module
+	info.ProductName = p.Product
+	info.ProductModel = p.Model
+	info.ProductVersion = p.Version
+	// use default version from git tag
+	if info.BuildVersion == "" {
+		info.BuildVersion = info.GitTag
+	}
+	if info.ProductVersion == "" {
+		info.ProductVersion = info.BuildVersion
+	}
+}
 
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
@@ -64,17 +82,8 @@ func NewRootCmd() *cobra.Command {
 
 			info.BuildTime = time.Now().Format(time.RFC3339)
 			info.ProjectRoot = wd
-			info.ProjectName = project.Module
 			info.ProjectPath = strings.Trim(strings.TrimPrefix(wd, filepath.Join(os.Getenv("GOPATH"), "src")), string(filepath.Separator))
-			info.ProductName = project.Product
-			info.ProductVersion = project.Version
-			// use default version from git tag
-			if info.BuildVersion == "" {
-				info.BuildVersion = info.GitTag
-			}
-			if info.ProductVersion == "" {
-				info.ProductVersion = info.BuildVersion
-			}
+			applyProjectInfo(project)
 			// compile filter regex
 			r, err := regexp.Compile(filter)
 			if err != nil {
