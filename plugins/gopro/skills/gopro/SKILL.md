@@ -89,6 +89,7 @@ env:
 build:
   binaries:
     - name: api
+      version: v1.2.3               # Optional: app version, defaults to product version
       src: cmd/api                  # Optional custom source path
       config_dir: /etc/api          # For template functions
       build_env: [CGO_ENABLED=0]    # Optional: MERGED over binary_build_env
@@ -410,9 +411,10 @@ gopro build binary -e local
 go build -o myapp ./cmd/myapp
 ```
 
-Thirteen fields are injected: `ProductName`, `ProductModel`, `ProductVersion`,
-`BuildVersion`, `BuildType`, `BuildDate`, `BuildTime`, `GitBranch`, `GitTag`,
-`GitCommit`, `ProjectName`, `ProjectPath`, and `ProjectRoot`. They are set on
+Fifteen fields are injected: `ApplicationName`, `ApplicationVersion`,
+`ProductName`, `ProductModel`, `ProductVersion`, `BuildVersion`, `BuildType`,
+`BuildDate`, `BuildTime`, `GitBranch`, `GitTag`, `GitCommit`, `ProjectName`,
+`ProjectPath`, and `ProjectRoot`. They are set on
 `github.com/xhanio/framingo/pkg/types/info` package vars and readable at runtime
 (e.g. via `gopro version`). The `--product-model`, `--product-version`,
 `--build-version`, `--build-type`, and `--build-date` flags each override the

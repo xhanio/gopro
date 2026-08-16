@@ -138,6 +138,7 @@ env:
 build:
   binaries:
     - name: api
+      version: v1.2.3                 # Optional: app version, defaults to product version
       src: cmd/api                    # Optional: override source path
       config_dir: /etc/myapp          # Config directory in container
       build_env: [CGO_ENABLED=0]      # Optional: merged over binary_build_env

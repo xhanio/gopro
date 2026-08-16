@@ -42,6 +42,7 @@
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Binary name (must be listed in `binaries`) |
+| `version` | No | Application's own version, injected as `ApplicationVersion` (default: the product version) |
 | `src` | No | Custom source path (default: `{binary_src}/{name}`) |
 | `config_dir` | No | Config directory path used in templates |
 | `build_env` | No | Env vars for this binary, **merged** over `binary_build_env` |
@@ -147,12 +148,14 @@ differs only in `image_tag`.
 
 ## Build Metadata Injection
 
-`gopro build binary` injects thirteen fields into the binary via `-ldflags`,
+`gopro build binary` injects fifteen fields into the binary via `-ldflags`,
 setting package vars on `github.com/xhanio/framingo/pkg/types/info`. A raw
 `go build` sets none of them, leaving every field empty.
 
 | Field | Value |
 |-------|-------|
+| `ApplicationName` | The binary's `name` from `build.binaries` |
+| `ApplicationVersion` | The binary's `version` from `build.binaries`, falling back to `ProductVersion` |
 | `ProductName` | `product` from project.yaml |
 | `ProductModel` | `model` from project.yaml; or `--product-model` |
 | `ProductVersion` | `version` from project.yaml, falling back to `BuildVersion`; or `--product-version` |

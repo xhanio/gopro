@@ -321,6 +321,7 @@ GoPro automatically injects build metadata using the [framingo](https://github.c
 
 - **Git Information**: Branch, tag, commit hash
 - **Build Information**: Build time, version, type
+- **Application Information**: Application name and version, per binary
 - **Product Information**: Product name, model, version
 - **Project Information**: Project name, path, root directory
 
@@ -835,6 +836,7 @@ Define binary and image build specifications:
 build:
   binaries:
     - name: api
+      version: v1.2.3                  # Optional: app version, defaults to product version
       src: cmd/api                     # Optional: custom source path
       config_dir: /etc/api             # Config directory (for templates)
       build_env: [CGO_ENABLED=0]       # Optional: merged over binary_build_env

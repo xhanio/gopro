@@ -61,7 +61,10 @@ type BuildSpec struct {
 
 type BinarySpec struct {
 	Name string `yaml:"name"`
-	Src  string `yaml:"src,omitempty"`
+	// Version is the application's own version, injected as
+	// info.ApplicationVersion; unset, it inherits the product version.
+	Version string `yaml:"version,omitempty"`
+	Src     string `yaml:"src,omitempty"`
 	// Deprecated: use Platforms, which also carries per-platform env and args.
 	// Still honored, and folded into Platforms by GetPlatforms.
 	Platform  []string       `yaml:"platform,omitempty"`

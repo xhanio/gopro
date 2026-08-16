@@ -12,16 +12,19 @@ import (
 // case cannot leak into the next.
 func resetInfo(t *testing.T) {
 	t.Helper()
-	old := struct{ name, model, pversion, bversion, tag, module string }{
+	old := struct{ name, model, pversion, bversion, tag, module, aname, aversion string }{
 		info.ProductName, info.ProductModel, info.ProductVersion,
 		info.BuildVersion, info.GitTag, info.ProjectName,
+		info.ApplicationName, info.ApplicationVersion,
 	}
 	t.Cleanup(func() {
 		info.ProductName, info.ProductModel, info.ProductVersion = old.name, old.model, old.pversion
 		info.BuildVersion, info.GitTag, info.ProjectName = old.bversion, old.tag, old.module
+		info.ApplicationName, info.ApplicationVersion = old.aname, old.aversion
 	})
 	info.ProductName, info.ProductModel, info.ProductVersion = "", "", ""
 	info.BuildVersion, info.GitTag, info.ProjectName = "", "", ""
+	info.ApplicationName, info.ApplicationVersion = "", ""
 }
 
 // project.yaml declares a model, so it has to reach the injected metadata.

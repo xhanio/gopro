@@ -46,6 +46,31 @@ build:
 	}
 }
 
+// A binary's version key must load, since it feeds the injected
+// ApplicationVersion.
+func TestLoadBinaryVersion(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "project.yaml")
+	// module is set so Load doesn't go looking for a go.mod.
+	body := `product: demo
+module: demo.test/demo
+build:
+  binaries:
+    - name: hello
+      version: v2.3.4
+`
+	if err := os.WriteFile(conf, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var p Project
+	if err := p.Load(conf); err != nil {
+		t.Fatal(err)
+	}
+	if got := p.Build.Binaries[0].Version; got != "v2.3.4" {
+		t.Fatalf("binary version = %q, want %q", got, "v2.3.4")
+	}
+}
+
 func TestGetPlatforms(t *testing.T) {
 	tests := []struct {
 		name   string

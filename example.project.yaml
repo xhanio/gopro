@@ -75,6 +75,7 @@ env:
 build:
   binaries:
     - name: demo
+      version: v1.2.3 # application's own version, defaults to the product version
       config_dir: /etc/demo
     - name: demo-cli
       build_env: # merge the binary_build_env

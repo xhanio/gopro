@@ -64,6 +64,18 @@ func overwriteBuildInfo() {
 	}
 }
 
+// applyApplicationInfo stamps the application identity onto the framingo info
+// vars before injection. Each build.binaries entry is one application: it is
+// named by the binary and versioned by the binary's version field, inheriting
+// the product version when it does not declare one.
+func applyApplicationInfo(binary types.BinarySpec) {
+	info.ApplicationName = binary.Name
+	info.ApplicationVersion = binary.Version
+	if info.ApplicationVersion == "" {
+		info.ApplicationVersion = info.ProductVersion
+	}
+}
+
 func runBuildBinary(cmd *cobra.Command, args []string) error {
 	overwriteBuildInfo()
 	if binaryOutput == "" {
@@ -81,6 +93,7 @@ func runBuildBinary(cmd *cobra.Command, args []string) error {
 			if binarySrc == "" {
 				binarySrc = filepath.Join(env.BinarySrc, binary.Name)
 			}
+			applyApplicationInfo(binary)
 			// build default platform
 			titlef("Build Binary %s from %s", name, binarySrc)
 			if err := executeBuildBinary(binary, types.PlatformSpec{}, binarySrc, binaryOutput); err != nil {
