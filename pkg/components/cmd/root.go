@@ -42,8 +42,7 @@ func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		// SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Flags parsed fine, so from here an error is a runtime failure,
-			// not a usage mistake: report it without the usage dump.
+			// Flags parsed, so later errors are not usage mistakes.
 			cmd.SilenceUsage = true
 			if help {
 				return cmd.Help()
@@ -110,21 +109,18 @@ func NewRootCmd() *cobra.Command {
 	return root
 }
 
-// resolveProjectPath gives the path framingo's nameutil trims import paths
-// by. Under a GOPATH/src it stays relative to it, as before. Elsewhere the
-// module path stands in: it overlaps the import paths the same way, where
-// the absolute working directory would overlap nothing. Neither known, it is
-// empty, which nameutil reads as "leave names untrimmed".
+// resolveProjectPath returns the path framingo's nameutil trims import paths
+// with: wd relative to a GOPATH/src containing it, else the module path, which
+// overlaps import paths the same way. Empty leaves names untrimmed.
 func resolveProjectPath(wd string, gopaths []string, module string) string {
 	for _, gopath := range gopaths {
 		if gopath == "" {
 			continue
 		}
 		rel, err := filepath.Rel(filepath.Join(gopath, "src"), wd)
-		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			continue
+		if err == nil && rel != "." && filepath.IsLocal(rel) {
+			return filepath.ToSlash(rel)
 		}
-		return filepath.ToSlash(rel)
 	}
 	return module
 }

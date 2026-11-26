@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/xhanio/framingo/pkg/types/info"
@@ -79,15 +80,10 @@ func pathsOverlap(a, b string) bool {
 	return strings.HasPrefix(a, b+sep) || strings.HasPrefix(b, a+sep)
 }
 
-// injectInfo returns the linker fields stamping each info var, one -X pair
-// per key in key order, so the same inputs always give the same command.
-// Values stay unquoted here; assembleBuildArgs quotes them for the linker.
+// injectInfo returns an unquoted "-X", "pkg.Key=value" pair per info var, in
+// key order so the command line is reproducible.
 func injectInfo() []string {
-	keys := make([]string, 0, len(info.INJECTION))
-	for key := range info.INJECTION {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(info.INJECTION))
 	fields := make([]string, 0, 2*len(keys))
 	for _, key := range keys {
 		fields = append(fields, "-X", fmt.Sprintf("%s.%s=%s", infoPackage, key, *info.INJECTION[key]))

@@ -142,8 +142,7 @@ func runRoot(t *testing.T, args ...string) (string, error) {
 	return out.String(), err
 }
 
-// A failure while running says what went wrong, without a screen of usage
-// burying it; the usage was not what the user got wrong.
+// Runtime errors print no usage.
 func TestRuntimeErrorOmitsUsage(t *testing.T) {
 	out, err := runRoot(t, "build", "binary", "-c", filepath.Join(t.TempDir(), "missing.yaml"))
 	if err == nil {
@@ -154,7 +153,7 @@ func TestRuntimeErrorOmitsUsage(t *testing.T) {
 	}
 }
 
-// A mistyped flag is a usage mistake, so the usage still helps there.
+// Flag errors still print usage.
 func TestFlagErrorKeepsUsage(t *testing.T) {
 	out, err := runRoot(t, "build", "binary", "--no-such-flag")
 	if err == nil {
@@ -165,13 +164,11 @@ func TestFlagErrorKeepsUsage(t *testing.T) {
 	}
 }
 
-// ProjectPath feeds framingo's nameutil, which trims import paths by their
-// overlap with it. Outside GOPATH the old prefix trim left an absolute path
-// such as home/me/code/app, which overlaps nothing, so names kept their full
-// import path. The module path overlaps the way the GOPATH-relative one did.
 func TestResolveProjectPath(t *testing.T) {
-	gopath := filepath.Join(string(filepath.Separator), "home", "me", "go")
-	other := filepath.Join(string(filepath.Separator), "opt", "go")
+	abs := func(elem ...string) string {
+		return filepath.Join(append([]string{string(filepath.Separator)}, elem...)...)
+	}
+	gopath, other, outside := abs("home", "me", "go"), abs("opt", "go"), abs("home", "me", "code", "gopro")
 	tests := []struct {
 		name    string
 		wd      string
@@ -194,7 +191,7 @@ func TestResolveProjectPath(t *testing.T) {
 		},
 		{
 			name:    "outside GOPATH uses the module path",
-			wd:      filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			wd:      outside,
 			gopaths: []string{gopath},
 			module:  "github.com/xhanio/gopro",
 			want:    "github.com/xhanio/gopro",
@@ -208,13 +205,13 @@ func TestResolveProjectPath(t *testing.T) {
 		},
 		{
 			name:    "no GOPATH match and no module leaves it empty",
-			wd:      filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			wd:      outside,
 			gopaths: []string{gopath},
 			want:    "",
 		},
 		{
 			name:   "unset GOPATH uses the module path",
-			wd:     filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			wd:     outside,
 			module: "github.com/xhanio/gopro",
 			want:   "github.com/xhanio/gopro",
 		},

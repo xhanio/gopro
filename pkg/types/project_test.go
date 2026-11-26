@@ -255,8 +255,7 @@ func TestGetImageNameLatestGuard(t *testing.T) {
 	}
 }
 
-// A mistyped -e used to fall back to the default env without a word, so a
-// prod build or push could quietly run with default settings.
+// GetEnv merges a declared env over the default and rejects an undeclared one.
 func TestGetEnv(t *testing.T) {
 	p := Project{
 		Default: EnvSpec{BinaryTgt: "bin/", ImageTag: "dev"},

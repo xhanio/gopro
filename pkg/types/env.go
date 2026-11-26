@@ -2,7 +2,8 @@ package types
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"go.uber.org/config"
@@ -34,24 +35,15 @@ type EnvSpec struct {
 	DockerComposeTgt string `yaml:"docker_compose_tgt,omitempty"`
 }
 
-// DefaultEnv names the default section, selected by an empty -e as well.
-const DefaultEnv = "default"
-
-// GetEnv returns the named environment laid over the default one. An empty
-// name or "default" selects the default section alone. Any other name must
-// be declared under env: a typo is an error rather than a silent build with
-// default settings.
+// GetEnv returns the named environment merged over the default one. "" and
+// "default" select the default alone; any other undeclared name is an error.
 func (p *Project) GetEnv(env string) (EnvSpec, error) {
 	e, ok := p.Env[env]
 	if !ok {
-		if env == "" || env == DefaultEnv {
+		if env == "" || env == "default" {
 			return p.Default, nil
 		}
-		names := make([]string, 0, len(p.Env))
-		for name := range p.Env {
-			names = append(names, name)
-		}
-		sort.Strings(names)
+		names := slices.Sorted(maps.Keys(p.Env))
 		return EnvSpec{}, fmt.Errorf("unknown environment %q (declared: %s)", env, strings.Join(names, ", "))
 	}
 	ds := config.Static(p.Default)
