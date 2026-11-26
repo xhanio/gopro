@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -131,8 +133,8 @@ func TestApplyProjectInfoExistingFields(t *testing.T) {
 
 func runRoot(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	oldPath, oldEnv := projectPath, envName
-	t.Cleanup(func() { projectPath, envName = oldPath, oldEnv })
+	oldPath, oldEnv, oldVerbose := projectPath, envName, verbose
+	t.Cleanup(func() { projectPath, envName, verbose = oldPath, oldEnv, oldVerbose })
 	root := NewRootCmd()
 	var out bytes.Buffer
 	root.SetOut(&out)
@@ -220,6 +222,57 @@ func TestResolveProjectPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := resolveProjectPath(tt.wd, tt.gopaths, tt.module); got != tt.want {
 				t.Fatalf("resolveProjectPath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// captureStdout returns what f prints to os.Stdout, where debugf writes.
+func captureStdout(t *testing.T, f func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	done := make(chan string)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+	defer func() { os.Stdout = old }()
+	f()
+	w.Close()
+	return <-done
+}
+
+// -v prints the env a command adds, never the inherited environment.
+func TestVerboseDoesNotPrintEnvironment(t *testing.T) {
+	const secret = "gopro-test-secret-value"
+	t.Setenv("GOPRO_TEST_SECRET", secret)
+	oldTag := info.GitTag
+	t.Cleanup(func() { info.GitTag = oldTag })
+	conf := filepath.Join(t.TempDir(), "project.yaml")
+	if err := os.WriteFile(conf, []byte("product: demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"-v", "-c", conf, "generate", "config"},
+		{"-v", "version"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			info.GitTag = "" // so version falls back to git
+			var err error
+			out := captureStdout(t, func() { _, err = runRoot(t, args...) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, "executing git") {
+				t.Fatalf("no git call traced, so nothing was checked:\n%s", out)
+			}
+			if strings.Contains(out, secret) {
+				t.Fatalf("verbose output leaked the environment:\n%s", out)
 			}
 		})
 	}

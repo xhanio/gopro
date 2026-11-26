@@ -64,6 +64,8 @@ func executePushImage(image string) error {
 	return err
 }
 
+// execute runs cmd in the inherited environment plus env. -v prints env, so
+// pass only additions, never os.Environ(), or every secret gets printed.
 func execute(cmd string, args []string, env []string, print bool) (string, error) {
 	if verbose {
 		debugf("executing %s %s", cmd, strings.Join(args, "\n"))

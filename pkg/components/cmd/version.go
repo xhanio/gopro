@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ func NewVersionCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// fallback to git when build info wasn't injected via ldflags
 			if info.GitTag == "" {
-				if tag, err := execute("git", []string{"describe", "--tags", "--always"}, os.Environ(), false); err == nil {
+				if tag, err := execute("git", []string{"describe", "--tags", "--always"}, nil, false); err == nil {
 					info.GitTag = strings.Trim(tag, " \n\t")
 				}
 			}

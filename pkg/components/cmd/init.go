@@ -30,10 +30,10 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 	titlef("initializing project directories")
 
 	// initialize git repository if not already initialized
-	_, err := execute("git", []string{"rev-parse", "--git-dir"}, os.Environ(), false)
+	_, err := execute("git", []string{"rev-parse", "--git-dir"}, nil, false)
 	if err != nil {
 		linef("initializing git repository")
-		_, err = execute("git", []string{"init"}, os.Environ(), false)
+		_, err = execute("git", []string{"init"}, nil, false)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 		if project.Module != "" {
 			args = append(args, project.Module)
 		}
-		_, err = execute("go", args, os.Environ(), false)
+		_, err = execute("go", args, nil, false)
 		if err != nil {
 			return err
 		}
