@@ -292,3 +292,35 @@ func TestGetEnv(t *testing.T) {
 		}
 	}
 }
+
+// Load takes an unset module from go.mod and tolerates a missing go.mod.
+func TestLoadModuleFromGoMod(t *testing.T) {
+	tests := []struct {
+		name, project, gomod, want string
+	}{
+		{name: "module read from go.mod", project: "product: demo\n", gomod: "module x.test/fromgomod\n", want: "x.test/fromgomod"},
+		{name: "declared module wins over go.mod", project: "product: demo\nmodule: x.test/declared\n", gomod: "module x.test/fromgomod\n", want: "x.test/declared"},
+		{name: "no go.mod leaves the module empty", project: "product: demo\n", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			conf := filepath.Join(dir, "project.yaml")
+			if err := os.WriteFile(conf, []byte(tt.project), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if tt.gomod != "" {
+				if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(tt.gomod), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var p Project
+			if err := p.Load(conf); err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			if p.Module != tt.want {
+				t.Fatalf("Module = %q, want %q", p.Module, tt.want)
+			}
+		})
+	}
+}

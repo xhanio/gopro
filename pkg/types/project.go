@@ -1,7 +1,9 @@
 package types
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -35,6 +37,8 @@ type Project struct {
 	Generate GenerateSpec       `yaml:"generate"`
 }
 
+// Load reads project.yaml at confPath, taking an unset module from the go.mod
+// beside it, if any.
 func (p *Project) Load(confPath string) error {
 	provider, err := config.NewYAML(config.File(confPath))
 	if err != nil {
@@ -46,6 +50,9 @@ func (p *Project) Load(confPath string) error {
 	}
 	if p.Module == "" {
 		mb, err := os.ReadFile(filepath.Join(filepath.Dir(confPath), "go.mod"))
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -157,17 +164,14 @@ type GenerateSpec struct {
 
 type ConfigSpec struct {
 	Name  string   `yaml:"name"`
-	Src   string   `yaml:"src,omitempty"`
 	Files []string `yaml:"files,omitempty"`
 }
 
 type KubernetesSpec struct {
 	Name  string   `yaml:"name"`
-	Src   string   `yaml:"src,omitempty"`
 	Files []string `yaml:"files,omitempty"`
 }
 
 type DockerComposeSpec struct {
-	Src   string   `yaml:"src,omitempty"`
 	Files []string `yaml:"files,omitempty"`
 }

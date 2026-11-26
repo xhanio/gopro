@@ -1,12 +1,6 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
-
-	"go.uber.org/config"
-	"golang.org/x/mod/modfile"
-
 	"github.com/xhanio/gopro/pkg/types"
 )
 
@@ -19,29 +13,11 @@ var (
 )
 
 func loadConfig() error {
-	p, err := config.NewYAML(config.File(projectPath))
-	if err != nil {
+	project = types.Project{}
+	if err := project.Load(projectPath); err != nil {
 		return err
 	}
-	err = p.Get(config.Root).Populate(&project)
-	if err != nil {
-		return err
-	}
+	var err error
 	env, err = project.GetEnv(envName)
-	if err != nil {
-		return err
-	}
-	goModPath := filepath.Join(filepath.Dir(projectPath), "go.mod")
-	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		return nil
-	}
-	if project.Module == "" {
-		// load module path from go.mod as project.Module
-		mb, err := os.ReadFile(goModPath)
-		if err != nil {
-			return err
-		}
-		project.Module = modfile.ModulePath(mb)
-	}
-	return nil
+	return err
 }
