@@ -36,7 +36,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 ### Per-Command Flags
 
 - `gopro build binary`: `-o/--output`, `--product-model`, `--product-version`, `--build-version`, `--build-type`, `--build-date`
-- `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`)
+- `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`), `--cache` (use the docker layer cache; default builds with `--no-cache`)
 - `gopro generate`: `-x/--prefix` (template prefix, default `template.`) on all three subcommands
 - `gopro generate config`: `-o/--output` — `gopro generate kubernetes`: `-t/--output`
 - `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`

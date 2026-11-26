@@ -25,6 +25,7 @@
 | `image_prefix` | `""` | Docker registry prefix |
 | `image_tag` | `latest` | Default image tag |
 | `image_build_env` | `[]` | Environment applied to the `docker build` / `docker tag` processes |
+| `image_build_args` | `[]` | Extra `docker build` flags; `-t`, `-f` and the injected build args are reserved |
 | `images` | `[]` | List of image names to build |
 | `config_src` | `""` | Config template source directory |
 | `config_tgt` | `""` | Config output directory |
@@ -108,8 +109,12 @@ values in the build environment.
 ## Docker Build Arguments
 
 When building images from Dockerfiles, these four build args are automatically
-provided. There is **no configuration hook for adding further `--build-arg`
-values** — to influence a build in other ways, set `image_build_env`.
+provided. Further flags, more `--build-arg`s included, go in `image_build_args`.
+
+`image_build_args` passes extra flags to `docker build` (for example
+`--platform`, `--target`, `--secret`, or more `--build-arg`s), placed after
+gopro's own and before the Dockerfile and context. `-t`/`--tag`, `-f`/`--file`
+and the four injected build args are reserved for gopro and rejected.
 
 | Arg | Value |
 |-----|-------|
@@ -121,13 +126,14 @@ values** — to influence a build in other ways, set `image_build_env`.
 The build runs as:
 
 ```bash
-docker build -t <image> --no-cache \
+docker build -t <image> [--no-cache] \
   --build-arg NAME=... --build-arg BASE=... \
   --build-arg CONFIG_TGT=... --build-arg CONFIG_DIR=... \
+  [image_build_args...] \
   -f <project_root>/<build_src>/Dockerfile <project_root>
 ```
 
-Builds always use `--no-cache`, and the build context is always the project root,
+`--no-cache` is passed unless `--cache` is given. The build context is always the project root,
 so a Dockerfile may `COPY` from anywhere in the repository.
 
 ## Image Tagging and Push
@@ -140,6 +146,7 @@ Image references resolve as `[prefix/]repo:tag`, where `prefix` falls back to
 |------|--------|
 | `-p, --push` | Push after building; skipped for images with `no_push: true` |
 | `-l, --latest` | Additionally tag and push `:latest`. Requires `--push` — alone it warns and does nothing |
+| `--cache` | Use the docker layer cache; without it builds pass `--no-cache` |
 
 `--latest` resolves the second reference through the same prefix/repo logic, and
 skips the extra push when the image already builds as `:latest`. This replaces

@@ -110,6 +110,8 @@ default:
   image_tag: v1.0.0              # Default image tag (defaults to "latest")
   image_build_env:               # Environment for docker build/tag
     - DOCKER_BUILDKIT=1
+  image_build_args:              # Extra docker build flags (-t, -f reserved)
+    - --platform=linux/amd64
 
   config_src: env/default/config
   config_tgt: dist/config
@@ -251,6 +253,7 @@ gopro build image -p -l                # Build, push, and also tag/push :latest
 Additional flags:
 - `-p, --push`: Push images to registry after building
 - `-l, --latest`: Additionally tag and push the image as `:latest` (requires `--push`; warns and does nothing without it)
+- `--cache`: Use the docker layer cache; without it images build with `--no-cache`
 
 **Features:**
 
@@ -276,7 +279,7 @@ Additional flags:
   - Skip specific images with `no_push: true`
   - Only pushes successfully built images
 
-- **Build execution**: Images build with `--no-cache`, using `{build_src}/Dockerfile` with the project root as build context, and inherit `image_build_env` as the Docker environment
+- **Build execution**: Images build with `--no-cache` unless `--cache` is given, using `{build_src}/Dockerfile` with the project root as build context, inherit `image_build_env` as the Docker environment, and pass `image_build_args` through to `docker build` (`-t`, `-f` and the injected build args are reserved)
 
 ### Generate Commands
 

@@ -362,6 +362,7 @@ gopro build image [flags]
 |------|-------|-------------|
 | `--push` | `-p` | Push images to registry after building |
 | `--latest` | `-l` | Also tag and push the image as `:latest` (requires `--push`) |
+| `--cache` | | Use the docker layer cache (default: build with `--no-cache`) |
 
 #### Examples
 
@@ -489,15 +490,22 @@ does nothing.
 Dockerfile builds run as:
 
 ```bash
-docker build -t <image> --no-cache \
+docker build -t <image> [--no-cache] \
   --build-arg NAME=... --build-arg BASE=... \
   --build-arg CONFIG_TGT=... --build-arg CONFIG_DIR=... \
+  [image_build_args...] \
   -f <project_root>/<build_src>/Dockerfile <project_root>
 ```
 
-The build context is always the project root, so a Dockerfile can `COPY` from
+`--no-cache` is passed unless `--cache` is given, so by default every layer is
+rebuilt. The build context is always the project root, so a Dockerfile can `COPY` from
 anywhere in the repository. `image_build_env` is applied as the environment for
 the `docker build` and `docker tag` invocations.
+
+`image_build_args` passes extra flags to `docker build` (for example
+`--platform`, `--target`, `--secret`, or more `--build-arg`s), placed after
+gopro's own and before the Dockerfile and context. `-t`/`--tag`, `-f`/`--file`
+and the four injected build args are reserved for gopro and rejected.
 
 ### generate config Command
 
@@ -793,6 +801,7 @@ default:
   image_prefix: registry.io/myapp   # Registry prefix
   image_tag: latest                 # Default image tag
   image_build_env: []               # Environment for docker build/tag
+  image_build_args: []              # Extra docker build flags (-t, -f reserved)
   images: [api, worker]             # Images to build
 
   # Config settings
@@ -1288,18 +1297,24 @@ FROM ${BASE}
 COPY ${CONFIG_TGT}/${NAME} ${CONFIG_DIR}
 ```
 
-There is no configuration hook for adding further `--build-arg` values. To
-influence the build in other ways, set `image_build_env`, which becomes the
-environment for the `docker build` and `docker tag` processes:
+Further `--build-arg`s and other `docker build` flags go in `image_build_args`;
+`image_build_env` becomes the environment for the `docker build` and
+`docker tag` processes:
 
 ```yaml
 env:
   prod:
     image_build_env:
       - DOCKER_BUILDKIT=1
+    image_build_args:
+      - --platform=linux/amd64
+      - --build-arg=VERSION=1.2.3
 ```
 
-Builds always run with `--no-cache`.
+Gopro's own `-t`, `-f` and the four build args above are reserved, so setting
+them in `image_build_args` is an error.
+
+Builds run with `--no-cache` unless `--cache` is given.
 
 ### Template File Patterns
 

@@ -22,6 +22,8 @@ default:
     # - -ldflags
     # - '-extldflags "-static"'
   image_build_src: build/image
+  # image_build_args: # extra docker build flags; -t, -f and NAME/BASE/CONFIG_TGT/CONFIG_DIR are reserved
+  #   - --platform=linux/amd64
   image_prefix: localhost:5000
   config_src: env/default/config
   config_tgt: dist/default/config

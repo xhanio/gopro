@@ -21,6 +21,7 @@ var (
 
 	pushImage  bool
 	pushLatest bool
+	imageCache bool
 )
 
 func NewBuildCmd() *cobra.Command {
@@ -117,6 +118,7 @@ func NewBuildImageCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&pushImage, "push", "p", false, "push image")
 	cmd.Flags().BoolVarP(&pushLatest, "latest", "l", false, "also tag and push :latest (requires --push)")
+	cmd.Flags().BoolVar(&imageCache, "cache", false, "use the docker layer cache (default builds with --no-cache)")
 	return cmd
 }
 
@@ -156,7 +158,7 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 				if baseName, ok := strings.CutPrefix(buildBase, "$"); ok {
 					buildBase = GetImageName(baseName)
 				}
-				err := executeBuildImage(name, buildSource, buildTarget, buildBase)
+				err := executeBuildImage(name, buildSource, buildTarget, buildBase, imageCache)
 				if err != nil {
 					return err
 				}

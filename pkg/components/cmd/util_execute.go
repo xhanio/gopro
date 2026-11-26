@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/xhanio/framingo/pkg/types/info"
@@ -16,25 +17,79 @@ import (
 	"github.com/xhanio/gopro/pkg/types"
 )
 
-func executeBuildImage(name, src, image, base string) error {
+func executeBuildImage(name, src, image, base string, cache bool) error {
 	if verbose {
 		debugf("building image %s %s from base %s", src, image, base)
+	}
+	args, err := dockerBuildArgs(name, src, image, base, cache, env.ImageBuildArgs)
+	if err != nil {
+		return fmt.Errorf("image %s: %w", name, err)
+	}
+	if verbose {
+		debugf("args: %s", strings.Join(args, " "))
+	}
+	_, err = execute("docker", args, env.ImageBuildEnv, true)
+	return err
+}
+
+// injectedBuildArgs are the --build-arg names gopro sets on every image build.
+var injectedBuildArgs = []string{"NAME", "BASE", "CONFIG_TGT", "CONFIG_DIR"}
+
+// dockerBuildArgs returns the docker build arguments, with --no-cache unless
+// cache is set. The user's args go before -f and the context, which stay
+// last. Positionals are left to docker, which rejects a second context.
+func dockerBuildArgs(name, src, image, base string, cache bool, user []string) ([]string, error) {
+	if err := checkReservedDockerArgs(user); err != nil {
+		return nil, err
 	}
 	var args []string
 	args = append(args, "build")
 	args = append(args, "-t", image)
-	args = append(args, "--no-cache")
+	if !cache {
+		args = append(args, "--no-cache")
+	}
 	args = append(args, "--build-arg", fmt.Sprintf("NAME=%s", name))
 	args = append(args, "--build-arg", fmt.Sprintf("BASE=%s", base))
 	args = append(args, "--build-arg", fmt.Sprintf("CONFIG_TGT=%s", env.ConfigTgt))
 	args = append(args, "--build-arg", fmt.Sprintf("CONFIG_DIR=%s", GetConfigDir(name)))
+	args = append(args, user...)
 	args = append(args, "-f", filepath.Join(info.ProjectRoot, src, "Dockerfile"))
 	args = append(args, info.ProjectRoot)
-	if verbose {
-		debugf("args: %s", strings.Join(args, " "))
+	return args, nil
+}
+
+// checkReservedDockerArgs rejects the flags gopro sets: a second -f would
+// replace the Dockerfile, a second -t would add a tag --push never pushes,
+// and a repeated injected build arg would override gopro's value.
+func checkReservedDockerArgs(user []string) error {
+	for i := 0; i < len(user); i++ {
+		arg := user[i]
+		switch {
+		case arg == "--tag" || strings.HasPrefix(arg, "--tag=") || isShortFlag(arg, 't'):
+			return errors.New("image build args may not set -t: gopro tags the image, use the image's repo, prefix and tag")
+		case arg == "--file" || strings.HasPrefix(arg, "--file=") || isShortFlag(arg, 'f'):
+			return errors.New("image build args may not set -f: gopro uses {build_src}/Dockerfile")
+		case arg == "--build-arg" || strings.HasPrefix(arg, "--build-arg="):
+			def, ok := strings.CutPrefix(arg, "--build-arg=")
+			if !ok {
+				if i+1 >= len(user) {
+					return errors.New("image build arg --build-arg needs a value")
+				}
+				i++
+				def = user[i]
+			}
+			key, _, _ := strings.Cut(def, "=")
+			if slices.Contains(injectedBuildArgs, key) {
+				return fmt.Errorf("image build args may not set --build-arg %s: gopro injects %s", key, strings.Join(injectedBuildArgs, ", "))
+			}
+		}
 	}
-	_, err := execute("docker", args, env.ImageBuildEnv, true)
-	return err
+	return nil
+}
+
+// isShortFlag reports whether arg is -c, alone or with its value attached.
+func isShortFlag(arg string, c byte) bool {
+	return len(arg) >= 2 && arg[0] == '-' && arg[1] == c
 }
 
 func executePullImage(image string) error {
