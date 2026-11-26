@@ -294,3 +294,19 @@ func TestHelpNamesTheProgram(t *testing.T) {
 		t.Errorf("help lacks cobra's -h, --help line:\n%s", out)
 	}
 }
+
+// example replaces the root's pre-run to skip config loading, so it has to
+// silence usage on its own.
+func TestExampleErrorOmitsUsage(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("project.yaml", []byte("product: demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runRoot(t, "example")
+	if err == nil {
+		t.Fatal("want an error when project.yaml already exists")
+	}
+	if strings.Contains(out, "Usage:") {
+		t.Fatalf("runtime error printed usage:\n%s", out)
+	}
+}

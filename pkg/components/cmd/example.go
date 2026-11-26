@@ -13,7 +13,10 @@ func NewExampleCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "example",
 		Short: "Save an example project.yaml to the current directory",
+		// Replaces the root's pre-run so no project.yaml is loaded, and so
+		// has to silence usage on runtime errors itself.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			return nil
 		},
 		RunE: runExample,
