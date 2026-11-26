@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/xhanio/framingo/pkg/types/info"
@@ -78,17 +79,18 @@ func pathsOverlap(a, b string) bool {
 	return strings.HasPrefix(a, b+sep) || strings.HasPrefix(b, a+sep)
 }
 
-func infoString(key string, val any) string {
-	return fmt.Sprintf("-X github.com/xhanio/framingo/pkg/types/info.%s=%v", key, val)
-}
-
+// injectInfo returns the linker fields stamping each info var, one -X pair
+// per key in key order, so the same inputs always give the same command.
+// Values stay unquoted here; assembleBuildArgs quotes them for the linker.
 func injectInfo() []string {
-	var infos []string
-	for key, val := range info.INJECTION {
-		infos = append(infos, infoString(key, *val))
+	keys := make([]string, 0, len(info.INJECTION))
+	for key := range info.INJECTION {
+		keys = append(keys, key)
 	}
-	return []string{
-		"-ldflags",
-		strings.Join(infos, " "),
+	sort.Strings(keys)
+	fields := make([]string, 0, 2*len(keys))
+	for _, key := range keys {
+		fields = append(fields, "-X", fmt.Sprintf("%s.%s=%s", infoPackage, key, *info.INJECTION[key]))
 	}
+	return fields
 }

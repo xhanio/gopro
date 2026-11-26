@@ -122,12 +122,15 @@ func executeBuildBinary(binary types.BinarySpec, platform types.PlatformSpec, sr
 		// The platform being built for outranks any GOOS/GOARCH in build_env.
 		envs = envutil.Merge(envs, []string{"GOOS=" + parts[0], "GOARCH=" + parts[1]})
 	}
+	buildArgs, err := assembleBuildArgs(buildArgsFor(env, binary, platform), injectInfo())
+	if err != nil {
+		return fmt.Errorf("binary %s: %w", binary.Name, err)
+	}
 	var args []string
 	args = append(args, "build")
-	args = append(args, buildArgsFor(env, binary, platform)...)
-	args = append(args, injectInfo()...)
+	args = append(args, buildArgs...)
 	args = append(args, "-o", filepath.Join(dst, name))
 	args = append(args, filepath.Join(info.ProjectRoot, src))
-	_, err := execute("go", args, envs, true)
+	_, err = execute("go", args, envs, true)
 	return err
 }

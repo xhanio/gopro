@@ -162,6 +162,17 @@ explicit `[]` therefore means "build with no arguments at all".
 | `*_build_env` / `build_env` / `env` | replaced | **merged key-wise** |
 | `*_build_args` / `build_args` / `args` | replaced | replaced (most specific set wins) |
 
+Once a level is chosen, gopro assembles the `go build` line from it.
+Tool-flag strings (`-ldflags`, `-gcflags`, `-asmflags`, `-gccgoflags`)
+**accumulate**: occurrences sharing a package pattern join into one flag at the
+position of the first, and the injected metadata `-X` fields join `-ldflags`
+after yours, so `[-ldflags, '-s', -ldflags, '-w']` links with `-s -w`. This
+differs from raw `go build`, where the last `-ldflags` wins. An empty value
+still resets the ones before it. For `-ldflags`, `all=` counts as unpatterned
+and any other pattern is an error. `-o` and
+`-X github.com/xhanio/framingo/pkg/types/info.*` are reserved for gopro and
+rejected. Every other flag passes through unchanged.
+
 ### YAML anchors cannot extend an array
 
 There is no sequence-splice in YAML. Aliasing a list as a list *item* nests it

@@ -258,6 +258,17 @@ Args replace because Go build flags are positional and repeatable, so a key-wise
 merge cannot distinguish an override from an accumulation. Only an unset level
 inherits, which means an explicit `[]` is how you build with no arguments.
 
+Once a level is chosen, gopro assembles the `go build` line from it.
+Tool-flag strings (`-ldflags`, `-gcflags`, `-asmflags`, `-gccgoflags`)
+**accumulate**: occurrences sharing a package pattern join into one flag at the
+position of the first, and the injected metadata `-X` fields join `-ldflags`
+after yours, so `[-ldflags, '-s', -ldflags, '-w']` links with `-s -w`. This
+differs from raw `go build`, where the last `-ldflags` wins. An empty value
+still resets the ones before it. For `-ldflags`, `all=` counts as unpatterned
+and any other pattern is an error. `-o` and
+`-X github.com/xhanio/framingo/pkg/types/info.*` are reserved for gopro and
+rejected. Every other flag passes through unchanged.
+
 ```yaml
 default:
   binary_build_env: [CGO_ENABLED=1, FOO=from_default]
