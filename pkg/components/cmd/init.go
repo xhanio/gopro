@@ -47,6 +47,11 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 			args = append(args, project.Module)
 		}
 		_, err = execute("go", args, nil, false)
+		if err != nil && project.Module == "" {
+			// Outside GOPATH go cannot infer a module path, and its message
+			// is not shown.
+			return errors.Newf("go mod init: %s; set module in project.yaml, go could not infer a module path here", err)
+		}
 		if err != nil {
 			return err
 		}

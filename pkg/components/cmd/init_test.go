@@ -99,3 +99,17 @@ func TestGitignoreIsIdempotent(t *testing.T) {
 		t.Errorf("second run changed the file:\n  %q\n  %q", once, twice)
 	}
 }
+
+// With no module and no go.mod, go mod init cannot infer a path outside
+// GOPATH. The error has to name the fix, not just report an exit status.
+func TestInitWithoutModuleSaysToSetIt(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("project.yaml", []byte("product: demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	captureStdout(t, func() { _, err = runRoot(t, "init") })
+	if err == nil || !strings.Contains(err.Error(), "set module in project.yaml") {
+		t.Fatalf("init error = %v, want one saying to set module", err)
+	}
+}
