@@ -319,7 +319,8 @@ build:
   still resets the ones before it. For `-ldflags`, `all=` counts as unpatterned
   and any other pattern is an error. `-o` and
   `-X github.com/xhanio/framingo/pkg/types/info.*` are reserved for gopro and
-  rejected. Every other flag passes through unchanged.
+  rejected, and so is any positional argument (a package path or `--`):
+  gopro supplies the package. Every other flag passes through unchanged.
 
 Note that this is a different mechanism from the `default` → `env` merge in
 `project.yaml`, where arrays are replaced rather than merged. See

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"os/exec"
 	"reflect"
-	"sort"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -98,13 +100,18 @@ func TestAssembleBuildArgsRejects(t *testing.T) {
 		inject  []string
 		wantErr string
 	}{
-		{name: "-o is set by gopro", user: []string{"-o", "x"}, wantErr: "-o"},
-		{name: "-o= is set by gopro", user: []string{"--o=x"}, wantErr: "-o"},
-		{name: "info -X is set by gopro", user: []string{"-ldflags", "-X " + infoPackage + ".GitTag=v1"}, wantErr: infoPackage},
-		{name: "info -X= is set by gopro", user: []string{"-ldflags", "-X=" + infoPackage + ".GitTag=v1"}, wantErr: infoPackage},
-		{name: "quoted info -X is set by gopro", user: []string{"-ldflags", "-X '" + infoPackage + ".GitTag=v 1'"}, wantErr: infoPackage},
+		{name: "-o", user: []string{"-o", "x"}, wantErr: "-o"},
+		{name: "--o=", user: []string{"--o=x"}, wantErr: "-o"},
+		{name: "info -X", user: []string{"-ldflags", "-X " + infoPackage + ".GitTag=v1"}, wantErr: infoPackage},
+		{name: "info -X=", user: []string{"-ldflags", "-X=" + infoPackage + ".GitTag=v1"}, wantErr: infoPackage},
+		{name: "quoted info -X", user: []string{"-ldflags", "-X '" + infoPackage + ".GitTag=v 1'"}, wantErr: infoPackage},
 		{name: "ldflags pattern other than all", user: []string{"-ldflags", "./cmd/api=-s"}, wantErr: "pattern"},
 		{name: "missing value", user: []string{"-v", "-ldflags"}, wantErr: "needs a value"},
+		// go build would read everything after a positional as packages.
+		{name: "package path", user: []string{"-v", "./cmd/api"}, wantErr: "positional"},
+		{name: "flag terminator", user: []string{"--", "-v"}, wantErr: "positional"},
+		// An unlisted value flag's value looks positional; suggest -name=value.
+		{name: "value of an unlisted flag", user: []string{"-newflag", "val"}, wantErr: "-newflag=val"},
 		{name: "unterminated quote", user: []string{"-ldflags", `-extldflags "-static`}, wantErr: "unterminated"},
 		{name: "injected value that cannot be quoted", inject: []string{"-X", infoPackage + `.ProductName=it's "x"`}, wantErr: "quote"},
 	}
@@ -122,8 +129,7 @@ func TestAssembleBuildArgsRejects(t *testing.T) {
 	}
 }
 
-// A value holding a space must reach the linker as one -X field. Unquoted it
-// split into a stray token and the link failed with a usage dump.
+// Injected values holding spaces or quotes reach the linker as one field.
 func TestAssembleBuildArgsQuotesInjectedValues(t *testing.T) {
 	want := []string{"-X", infoPackage + ".ProjectRoot=/home/me/My Projects/app", "-X", infoPackage + `.ProductName=it's`}
 	got, err := assembleBuildArgs(nil, want)
@@ -139,8 +145,7 @@ func TestAssembleBuildArgsQuotesInjectedValues(t *testing.T) {
 	}
 }
 
-// The command line has to be reproducible: info.INJECTION is a map, so
-// ranging over it straight reordered the -X flags from run to run.
+// injectInfo emits its -X pairs sorted by key.
 func TestInjectInfoIsSortedByKey(t *testing.T) {
 	fields := injectInfo()
 	var keys []string
@@ -151,7 +156,25 @@ func TestInjectInfoIsSortedByKey(t *testing.T) {
 		key, _, _ := strings.Cut(strings.TrimPrefix(fields[i+1], infoPackage+"."), "=")
 		keys = append(keys, key)
 	}
-	if len(keys) == 0 || !sort.StringsAreSorted(keys) {
+	if len(keys) == 0 || !slices.IsSorted(keys) {
 		t.Fatalf("injected keys %q are not sorted", keys)
+	}
+}
+
+// valueFlags and toolFlags cover every flag "go help build" lists with a
+// value ("-name arg"), so toolchain drift fails here, not in a user's build.
+func TestValueFlagsCoverGoBuild(t *testing.T) {
+	out, err := exec.Command("go", "help", "build").Output()
+	if err != nil {
+		t.Skipf("go help build: %v", err)
+	}
+	matches := regexp.MustCompile(`(?m)^\t-(\w+) \S`).FindAllStringSubmatch(string(out), -1)
+	if len(matches) == 0 {
+		t.Fatal("no value flags found in go help build; has its format changed?")
+	}
+	for _, m := range matches {
+		if name := m[1]; !valueFlags[name] && !toolFlags[name] {
+			t.Errorf("go build flag -%s takes a value but is in neither valueFlags nor toolFlags", name)
+		}
 	}
 }

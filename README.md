@@ -226,7 +226,7 @@ Additional flags:
 - **Layered build environment and flags**: Three levels, resolved differently
   - `binary_build_env` → binary `build_env` → platform `env` are **merged** key-wise: each level overrides only the variables it names and inherits the rest
   - `binary_build_args` → binary `build_args` → platform `args` **replace** wholesale: the most specific level that sets a list wins, because Go build flags are positional and repeatable, so a key-wise merge cannot tell an override from an accumulation. Only an unset level inherits — an explicitly empty list means "build with no arguments"
-  - The chosen args are then assembled into one `go build` line: `-ldflags`, `-gcflags`, `-asmflags` and `-gccgoflags` **accumulate** (occurrences sharing a package pattern join into one flag, and the injected metadata joins `-ldflags`), unlike raw `go build` where the last one wins. `-o` and `-X` on `github.com/xhanio/framingo/pkg/types/info` are reserved for gopro and rejected; every other flag passes through
+  - The chosen args are then assembled into one `go build` line: `-ldflags`, `-gcflags`, `-asmflags` and `-gccgoflags` **accumulate** (occurrences sharing a package pattern join into one flag, and the injected metadata joins `-ldflags`), unlike raw `go build` where the last one wins. `-o` and `-X` on `github.com/xhanio/framingo/pkg/types/info` are reserved for gopro and rejected, as is any positional argument (gopro supplies the package); every other flag passes through
 
 - **Build metadata injection**: Automatic version info embedding via `-ldflags`
   - Product model, version, and build type

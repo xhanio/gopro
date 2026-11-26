@@ -267,7 +267,8 @@ differs from raw `go build`, where the last `-ldflags` wins. An empty value
 still resets the ones before it. For `-ldflags`, `all=` counts as unpatterned
 and any other pattern is an error. `-o` and
 `-X github.com/xhanio/framingo/pkg/types/info.*` are reserved for gopro and
-rejected. Every other flag passes through unchanged.
+rejected, and so is any positional argument (a package path or `--`):
+gopro supplies the package. Every other flag passes through unchanged.
 
 ```yaml
 default:
