@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"bytes"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xhanio/framingo/pkg/types/info"
@@ -123,5 +126,41 @@ func TestApplyProjectInfoExistingFields(t *testing.T) {
 				t.Errorf("ProductVersion = %q, want %q", info.ProductVersion, tt.wantProductVersion)
 			}
 		})
+	}
+}
+
+func runRoot(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	oldPath, oldEnv := projectPath, envName
+	t.Cleanup(func() { projectPath, envName = oldPath, oldEnv })
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs(args)
+	err := root.Execute()
+	return out.String(), err
+}
+
+// A failure while running says what went wrong, without a screen of usage
+// burying it; the usage was not what the user got wrong.
+func TestRuntimeErrorOmitsUsage(t *testing.T) {
+	out, err := runRoot(t, "build", "binary", "-c", filepath.Join(t.TempDir(), "missing.yaml"))
+	if err == nil {
+		t.Fatal("want an error for a missing config")
+	}
+	if strings.Contains(out, "Usage:") {
+		t.Fatalf("runtime error printed usage:\n%s", out)
+	}
+}
+
+// A mistyped flag is a usage mistake, so the usage still helps there.
+func TestFlagErrorKeepsUsage(t *testing.T) {
+	out, err := runRoot(t, "build", "binary", "--no-such-flag")
+	if err == nil {
+		t.Fatal("want an error for an unknown flag")
+	}
+	if !strings.Contains(out, "Usage:") {
+		t.Fatalf("flag error printed no usage:\n%s", out)
 	}
 }

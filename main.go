@@ -14,6 +14,6 @@ var exampleProjectYAML []byte
 func main() {
 	types.ExampleProjectYAML = exampleProjectYAML
 	if err := cmd.NewRootCmd().Execute(); err != nil {
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }

@@ -40,8 +40,10 @@ func applyProjectInfo(p types.Project) {
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		// SilenceErrors: true,
-		// SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Flags parsed fine, so from here an error is a runtime failure,
+			// not a usage mistake: report it without the usage dump.
+			cmd.SilenceUsage = true
 			if help {
 				return cmd.Help()
 			}
