@@ -16,7 +16,6 @@ import (
 )
 
 var (
-	help        bool
 	verbose     bool
 	filter      string
 	filterRegex *regexp.Regexp
@@ -40,13 +39,12 @@ func applyProjectInfo(p types.Project) {
 
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
+		Use:   "gopro",
+		Short: "Build, package, and render multi-environment Go projects",
 		// SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Flags parsed, so later errors are not usage mistakes.
 			cmd.SilenceUsage = true
-			if help {
-				return cmd.Help()
-			}
 			// skip config loading for version command
 			if cmd.Name() == "version" {
 				return nil
@@ -95,7 +93,6 @@ func NewRootCmd() *cobra.Command {
 			return nil
 		},
 	}
-	root.PersistentFlags().BoolVar(&help, "help", false, "")
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "")
 	root.PersistentFlags().StringVarP(&projectPath, "config", "c", "project.yaml", "config file path")
 	root.PersistentFlags().StringVarP(&envName, "environment", "e", "", "select an environment to generate for")

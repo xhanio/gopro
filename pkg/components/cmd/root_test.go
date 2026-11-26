@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -275,5 +276,21 @@ func TestVerboseDoesNotPrintEnvironment(t *testing.T) {
 				t.Fatalf("verbose output leaked the environment:\n%s", out)
 			}
 		})
+	}
+}
+
+// Help names the program and keeps cobra's -h, --help flag.
+func TestHelpNamesTheProgram(t *testing.T) {
+	out, err := runRoot(t, "build", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"gopro build [command]", `Use "gopro build [command] --help"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help lacks %q:\n%s", want, out)
+		}
+	}
+	if !regexp.MustCompile(`-h, --help\s+help for build`).MatchString(out) {
+		t.Errorf("help lacks cobra's -h, --help line:\n%s", out)
 	}
 }

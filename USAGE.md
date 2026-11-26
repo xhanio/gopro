@@ -96,7 +96,7 @@ These flags are available for all commands:
 | `--environment` | `-e` | (unset) | Target environment (local, prod, or custom). When unset (or `default`), the `default` section is used as-is; an undeclared name is an error |
 | `--filter` | `-f` | `.*` | Regex filter for selecting components |
 | `--verbose` | `-v` | `false` | Enable verbose output for debugging |
-| `--help` | | `false` | Show help information |
+| `--help` | `-h` | `false` | Show help information |
 
 The `example` and `version` commands do not load `project.yaml`, so they work in
 a directory that has no configuration yet.
