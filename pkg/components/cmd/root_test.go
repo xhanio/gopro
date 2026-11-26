@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -252,30 +253,20 @@ func captureStdout(t *testing.T, f func()) string {
 func TestVerboseDoesNotPrintEnvironment(t *testing.T) {
 	const secret = "gopro-test-secret-value"
 	t.Setenv("GOPRO_TEST_SECRET", secret)
-	oldTag := info.GitTag
-	t.Cleanup(func() { info.GitTag = oldTag })
 	conf := filepath.Join(t.TempDir(), "project.yaml")
 	if err := os.WriteFile(conf, []byte("product: demo\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{
-		{"-v", "-c", conf, "generate", "config"},
-		{"-v", "version"},
-	} {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			info.GitTag = "" // so version falls back to git
-			var err error
-			out := captureStdout(t, func() { _, err = runRoot(t, args...) })
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(out, "executing git") {
-				t.Fatalf("no git call traced, so nothing was checked:\n%s", out)
-			}
-			if strings.Contains(out, secret) {
-				t.Fatalf("verbose output leaked the environment:\n%s", out)
-			}
-		})
+	var err error
+	out := captureStdout(t, func() { _, err = runRoot(t, "-v", "-c", conf, "generate", "config") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "executing git") {
+		t.Fatalf("no git call traced, so nothing was checked:\n%s", out)
+	}
+	if strings.Contains(out, secret) {
+		t.Fatalf("verbose output leaked the environment:\n%s", out)
 	}
 }
 
@@ -308,5 +299,51 @@ func TestExampleErrorOmitsUsage(t *testing.T) {
 	}
 	if strings.Contains(out, "Usage:") {
 		t.Fatalf("runtime error printed usage:\n%s", out)
+	}
+}
+
+// gopro's version is its own: the injected tag, else the module version the
+// go command recorded. Never the tag of whatever repository it runs in.
+func TestToolVersion(t *testing.T) {
+	bi := func(v string) *debug.BuildInfo { return &debug.BuildInfo{Main: debug.Module{Version: v}} }
+	tests := []struct {
+		name     string
+		injected string
+		bi       *debug.BuildInfo
+		want     string
+	}{
+		{name: "injected tag wins", injected: "v1.2.3", bi: bi("v9.9.9"), want: "v1.2.3"},
+		{name: "go install records the module version", bi: bi("v0.1.11"), want: "v0.1.11"},
+		{name: "local build", bi: bi("(devel)"), want: "(devel)"},
+		{name: "no version recorded", bi: bi(""), want: "unknown"},
+		{name: "no build info", want: "unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := toolVersion(tt.injected, tt.bi); got != tt.want {
+				t.Fatalf("toolVersion() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// Build Time is when gopro was built, as injected; it used to print the
+// time the command ran.
+func TestVersionPrintsInjectedBuildTime(t *testing.T) {
+	oldTag, oldTime := info.GitTag, info.BuildTime
+	t.Cleanup(func() { info.GitTag, info.BuildTime = oldTag, oldTime })
+	for _, tt := range []struct{ tag, time, want string }{
+		{"v1.2.3", "2026-01-02T03:04:05Z", "Version:    v1.2.3\nBuild Time: 2026-01-02T03:04:05Z\n"},
+		{"v1.2.3", "", "Version:    v1.2.3\nBuild Time: unknown\n"},
+	} {
+		info.GitTag, info.BuildTime = tt.tag, tt.time
+		var err error
+		out := captureStdout(t, func() { _, err = runRoot(t, "version") })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != tt.want {
+			t.Errorf("version printed %q, want %q", out, tt.want)
+		}
 	}
 }
