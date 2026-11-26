@@ -180,7 +180,7 @@ generate:
 All commands support these global flags:
 
 - `-c, --config <path>`: Specify configuration file path (default: `project.yaml`)
-- `-e, --environment <name>`: Target environment (`local`, `prod`, or custom). When omitted, the `default` section is used as-is; a named environment is merged on top of `default`
+- `-e, --environment <name>`: Target environment (`local`, `prod`, or custom). When omitted (or `default`), the `default` section is used as-is; a named environment is merged on top of `default`, and a name not declared under `env` is an error
 - `-f, --filter <regex>`: Filter components using regex pattern (default: `.*`)
 - `-v, --verbose`: Enable verbose output for debugging
 

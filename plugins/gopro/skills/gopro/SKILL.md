@@ -29,7 +29,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 ### Global Flags
 
 - `-c, --config <path>` - Config file (default: `project.yaml`)
-- `-e, --environment <name>` - Target environment (local, prod, or custom). Omitted = use `default` as-is
+- `-e, --environment <name>` - Target environment (local, prod, or custom). Omitted (or `default`) = use `default` as-is; an undeclared name is an error
 - `-f, --filter <regex>` - Regex filter for selective component building (default: `.*`)
 - `-v, --verbose` - Debug output
 

@@ -27,7 +27,10 @@ func loadConfig() error {
 	if err != nil {
 		return err
 	}
-	env = project.GetEnv(envName)
+	env, err = project.GetEnv(envName)
+	if err != nil {
+		return err
+	}
 	goModPath := filepath.Join(filepath.Dir(projectPath), "go.mod")
 	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
 		return nil

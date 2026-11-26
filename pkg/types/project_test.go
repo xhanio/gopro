@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -251,5 +252,44 @@ func TestGetImageNameLatestGuard(t *testing.T) {
 	env := EnvSpec{} // no tag anywhere -> defaults to "latest"
 	if primary, latest := image.GetImageName(env), image.GetImageNameWithTag(env, "latest"); primary != latest {
 		t.Fatalf("expected primary %q to equal latest sibling %q", primary, latest)
+	}
+}
+
+// A mistyped -e used to fall back to the default env without a word, so a
+// prod build or push could quietly run with default settings.
+func TestGetEnv(t *testing.T) {
+	p := Project{
+		Default: EnvSpec{BinaryTgt: "bin/", ImageTag: "dev"},
+		Env: map[string]EnvSpec{
+			"prod":  {ImageTag: "stable"},
+			"local": {},
+		},
+	}
+	for _, name := range []string{"", "default"} {
+		got, err := p.GetEnv(name)
+		if err != nil {
+			t.Fatalf("GetEnv(%q) error = %v", name, err)
+		}
+		if !reflect.DeepEqual(got, p.Default) {
+			t.Fatalf("GetEnv(%q) = %+v, want the default env", name, got)
+		}
+	}
+
+	got, err := p.GetEnv("prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ImageTag != "stable" || got.BinaryTgt != "bin/" {
+		t.Fatalf("GetEnv(prod) = %+v, want prod's tag over the default's target", got)
+	}
+
+	_, err = p.GetEnv("prdo")
+	if err == nil {
+		t.Fatal("GetEnv(prdo) succeeded, want an unknown environment error")
+	}
+	for _, want := range []string{`"prdo"`, "local, prod"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("GetEnv(prdo) error = %q, want it to mention %s", err, want)
+		}
 	}
 }

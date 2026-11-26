@@ -93,7 +93,7 @@ These flags are available for all commands:
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--config` | `-c` | `project.yaml` | Path to the configuration file |
-| `--environment` | `-e` | (unset) | Target environment (local, prod, or custom). When unset, the `default` section is used as-is |
+| `--environment` | `-e` | (unset) | Target environment (local, prod, or custom). When unset (or `default`), the `default` section is used as-is; an undeclared name is an error |
 | `--filter` | `-f` | `.*` | Regex filter for selecting components |
 | `--verbose` | `-v` | `false` | Enable verbose output for debugging |
 | `--help` | | `false` | Show help information |
