@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"go/build"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -84,7 +85,7 @@ func NewRootCmd() *cobra.Command {
 
 			info.BuildTime = time.Now().Format(time.RFC3339)
 			info.ProjectRoot = wd
-			info.ProjectPath = strings.Trim(strings.TrimPrefix(wd, filepath.Join(os.Getenv("GOPATH"), "src")), string(filepath.Separator))
+			info.ProjectPath = resolveProjectPath(wd, filepath.SplitList(build.Default.GOPATH), project.Module)
 			applyProjectInfo(project)
 			// compile filter regex
 			r, err := regexp.Compile(filter)
@@ -107,4 +108,23 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(NewExampleCmd())
 	root.AddCommand(NewVersionCmd())
 	return root
+}
+
+// resolveProjectPath gives the path framingo's nameutil trims import paths
+// by. Under a GOPATH/src it stays relative to it, as before. Elsewhere the
+// module path stands in: it overlaps the import paths the same way, where
+// the absolute working directory would overlap nothing. Neither known, it is
+// empty, which nameutil reads as "leave names untrimmed".
+func resolveProjectPath(wd string, gopaths []string, module string) string {
+	for _, gopath := range gopaths {
+		if gopath == "" {
+			continue
+		}
+		rel, err := filepath.Rel(filepath.Join(gopath, "src"), wd)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		return filepath.ToSlash(rel)
+	}
+	return module
 }

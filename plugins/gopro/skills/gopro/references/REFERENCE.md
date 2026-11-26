@@ -167,7 +167,7 @@ setting package vars on `github.com/xhanio/framingo/pkg/types/info`. A raw
 | `GitTag` | `git describe --tags --always` |
 | `GitCommit` | `git rev-parse HEAD` |
 | `ProjectName` | The Go module path |
-| `ProjectPath` | Project directory relative to `$GOPATH/src` |
+| `ProjectPath` | Project directory relative to `$GOPATH/src`; outside GOPATH, the module path |
 | `ProjectRoot` | Absolute working directory of the build |
 
 The three Git values are best-effort: outside a repository the build still

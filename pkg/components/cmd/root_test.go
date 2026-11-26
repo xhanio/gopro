@@ -164,3 +164,66 @@ func TestFlagErrorKeepsUsage(t *testing.T) {
 		t.Fatalf("flag error printed no usage:\n%s", out)
 	}
 }
+
+// ProjectPath feeds framingo's nameutil, which trims import paths by their
+// overlap with it. Outside GOPATH the old prefix trim left an absolute path
+// such as home/me/code/app, which overlaps nothing, so names kept their full
+// import path. The module path overlaps the way the GOPATH-relative one did.
+func TestResolveProjectPath(t *testing.T) {
+	gopath := filepath.Join(string(filepath.Separator), "home", "me", "go")
+	other := filepath.Join(string(filepath.Separator), "opt", "go")
+	tests := []struct {
+		name    string
+		wd      string
+		gopaths []string
+		module  string
+		want    string
+	}{
+		{
+			name:    "under GOPATH/src stays GOPATH-relative",
+			wd:      filepath.Join(gopath, "src", "xhanio", "gopro"),
+			gopaths: []string{gopath},
+			module:  "github.com/xhanio/gopro",
+			want:    "xhanio/gopro",
+		},
+		{
+			name:    "any GOPATH entry counts",
+			wd:      filepath.Join(other, "src", "xhanio", "gopro"),
+			gopaths: []string{gopath, other},
+			want:    "xhanio/gopro",
+		},
+		{
+			name:    "outside GOPATH uses the module path",
+			wd:      filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			gopaths: []string{gopath},
+			module:  "github.com/xhanio/gopro",
+			want:    "github.com/xhanio/gopro",
+		},
+		{
+			name:    "a sibling of GOPATH/src is not inside it",
+			wd:      filepath.Join(gopath, "srcx", "gopro"),
+			gopaths: []string{gopath},
+			module:  "github.com/xhanio/gopro",
+			want:    "github.com/xhanio/gopro",
+		},
+		{
+			name:    "no GOPATH match and no module leaves it empty",
+			wd:      filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			gopaths: []string{gopath},
+			want:    "",
+		},
+		{
+			name:   "unset GOPATH uses the module path",
+			wd:     filepath.Join(string(filepath.Separator), "home", "me", "code", "gopro"),
+			module: "github.com/xhanio/gopro",
+			want:   "github.com/xhanio/gopro",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveProjectPath(tt.wd, tt.gopaths, tt.module); got != tt.want {
+				t.Fatalf("resolveProjectPath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
