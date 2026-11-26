@@ -159,7 +159,7 @@ func createOrUpdateGitignore() error {
 		{"bin/", true},
 		{"dist/", true},
 		{"test/", true},
-		{"secret.env", false},
+		{secretEnvFile, false},
 	}
 	linef("managing .gitignore file")
 	// check if .gitignore exists, create if it doesn't

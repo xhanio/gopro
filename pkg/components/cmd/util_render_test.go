@@ -110,3 +110,32 @@ func TestRenderDirectoryPatternStillScopesToThatDirectory(t *testing.T) {
 		t.Errorf("elsewhere/server.pem should not match cert/* (err=%v)", err)
 	}
 }
+
+// secret.env is only a source for FromSecretEnv and never reaches output,
+// whatever files says; an absent list still processes every other file.
+func TestRenderNeverCopiesSecretEnv(t *testing.T) {
+	for _, patterns := range [][]string{nil, {"*"}, {"secret.env", "*.yaml"}} {
+		src, dst := t.TempDir(), t.TempDir()
+		writeTree(t, src, "secret.env", "K=v\n")
+		writeTree(t, src, "sub/secret.env", "K=v\n")
+		writeTree(t, src, "template.secret.env", "K=v\n")
+		writeTree(t, src, "config.yaml", "a: 1\n")
+
+		if err := render("api", src, dst, "template.", patterns); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := os.Stat(filepath.Join(dst, "config.yaml")); err != nil {
+			t.Errorf("files=%q: config.yaml was not copied: %v", patterns, err)
+		}
+		err := filepath.WalkDir(dst, func(path string, d os.DirEntry, err error) error {
+			if err == nil && d.Name() == "secret.env" {
+				t.Errorf("files=%q: %s reached output", patterns, path)
+			}
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

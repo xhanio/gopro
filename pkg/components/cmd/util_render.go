@@ -91,8 +91,12 @@ func FromConfigJSON(name, filename, jsonpath string) string {
 	return result.String()
 }
 
+// secretEnvFile holds a component's secrets. FromSecretEnv reads it from the
+// source directory; render never writes a file of that name to output.
+const secretEnvFile = "secret.env"
+
 func FromSecretEnv(name, key string) string {
-	b, err := os.ReadFile(filepath.Join(env.ConfigSrc, name, "secret.env"))
+	b, err := os.ReadFile(filepath.Join(env.ConfigSrc, name, secretEnvFile))
 	if err != nil {
 		panic(fmt.Errorf("failed to render from %s secret.env: %s", name, err.Error()))
 	}
@@ -147,6 +151,10 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 		ok, er := matches(outRel, patterns...)
 		if er != nil {
 			return er
+		}
+		if filepath.Base(outRel) == secretEnvFile {
+			// Not even when files matches it: output is what gets shipped.
+			ok = false
 		}
 		if !ok || d.IsDir() {
 			// Directories are not created up front; a file creates its own
