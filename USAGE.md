@@ -21,6 +21,7 @@ This guide provides detailed instructions on using GoPro, a Go-based project gen
 - [Advanced Features](#advanced-features)
 - [Common Workflows](#common-workflows)
 - [Troubleshooting](#troubleshooting)
+- [Best Practices](#best-practices)
 
 ## Installation
 
@@ -39,7 +40,7 @@ Clone and build the project:
 ```bash
 git clone https://github.com/xhanio/gopro.git
 cd gopro
-go build -o gopro main.go
+go build -o gopro .
 ```
 
 After building, you can move the binary to your PATH:
@@ -64,7 +65,9 @@ Navigate to your Go project directory and generate an example `project.yaml`:
 gopro example
 ```
 
-This saves an example configuration file to the current directory. Edit it to match your project.
+This saves an example configuration file to the current directory. Edit it to
+match your project, and set `module` unless the directory already has a `go.mod`
+— the next step needs it.
 
 ### 2. Initialize Project Structure
 
@@ -138,14 +141,14 @@ Initialize project structure based on configuration.
 
 ```bash
 gopro init
-gopro init -e local        # Initialize only for local environment
+gopro init -e local        # Directories for default plus local only
 gopro init -c custom.yaml  # Use custom config file
 ```
 
 #### What it Does
 
 1. **Git Repository**: Initializes Git if not already initialized
-2. **Go Module**: Runs `go mod init` if `go.mod` doesn't exist, using the `module` field from config when it is set
+2. **Go Module**: Runs `go mod init` if `go.mod` doesn't exist, using the `module` field from config when it is set. Without it the command fails outside GOPATH — see [Module Path Not Found](#9-module-path-not-found)
 3. **Directory Structure**: Creates all directories specified in:
    - Default environment configuration
    - All environment-specific configurations (or specific environment with `-e`)
@@ -153,7 +156,7 @@ gopro init -c custom.yaml  # Use custom config file
    - `bin/` - Binary output directory
    - `dist/` - Generated files directory
    - `test/` - Test directory
-   - `secret.env` - Secret environment files (rendering source only, never copied to output)
+   - `secret.env` - Secrets read by `FromSecretEnv` at render time
 
 #### Example Output
 
@@ -177,23 +180,23 @@ appended in a fixed order, so repeated runs and diffs stay stable.
 
 ### version Command
 
-Print version information.
+Print gopro's own version.
 
 ```bash
 gopro version
 ```
 
-Outputs the Git tag (from `-ldflags` injection at build time, falling back to
-`git describe --tags --always` in the current directory) and the current time:
-
 ```
-Version:  v0.1.9
-Build Time: 2026-07-28 21:53:27.884189693 -0700 PDT m=+0.004790545
+Version:    v0.1.11
+Build Time: unknown
 ```
 
-Note that "Build Time" is the time the command ran, not the time the binary was
-compiled; the compile-time metadata lives in the `-ldflags`-injected fields
-described under [Build Metadata Injection](#build-metadata-injection).
+`Version` is the Git tag injected when gopro is itself built with
+`gopro build binary`. Otherwise it is the module version the Go toolchain
+recorded: the release tag for `go install github.com/xhanio/gopro@latest`, a
+pseudo-version for `go build .` in a checkout, and `unknown` when none was
+recorded. `Build Time` is the injected build time, or `unknown` for a binary not
+built with gopro. Neither depends on the directory the command runs in.
 
 ### build binary Command
 
@@ -301,9 +304,8 @@ build:
 
 - **Environment** (`binary_build_env` → `build_env` → platform `env`) is
   **merged key-wise**: each level overrides only the variables it names and
-  inherits the rest. Above, every build keeps `CGO_ENABLED=1`, while `FOO`
-  resolves to `from_binary` for most targets and the `linux/arm64` build
-  additionally gets `CC`.
+  inherits the rest. Above, every build keeps `CGO_ENABLED=1` and resolves `FOO`
+  to `from_binary`, and the `linux/arm64` build additionally gets `CC`.
 - **Arguments** (`binary_build_args` → `build_args` → platform `args`)
   **replace** wholesale. Go build flags are positional and repeatable, so a
   key-wise merge cannot distinguish an override from an accumulation. Only an
@@ -331,7 +333,7 @@ Note that this is a different mechanism from the `default` → `env` merge in
 GoPro automatically injects build metadata using the [framingo](https://github.com/xhanio/framingo) package. The following information is embedded:
 
 - **Git Information**: Branch, tag, commit hash
-- **Build Information**: Build time, version, type
+- **Build Information**: Build version, type, date, and time
 - **Application Information**: Application name and version, per binary
 - **Product Information**: Product name, model, version
 - **Project Information**: Project name, path, root directory
@@ -562,8 +564,8 @@ gopro generate config -x "tmpl."
 
 4. **File Filtering**:
    - Only files matching patterns in `files` array are processed
-   - An empty or absent `files` list processes everything
-   - Useful for excluding sensitive or irrelevant files
+   - An empty or absent `files` list processes every file
+   - A file named `secret.env` is never written to output, even when a pattern matches it
 
 #### Configuration Example
 
@@ -575,7 +577,7 @@ generate:
         - "*.yaml"
         - "*.json"
         - "config/*"
-        # Do NOT include secret.env here — it is read from source by FromSecretEnv, never copied to output
+        # secret.env needs no entry — FromSecretEnv reads it from the source, and it is never copied to output
 
 default:
   config_src: env/default/config
@@ -646,7 +648,6 @@ generate:
       files:
         - "deployment.yaml"
         - "service.yaml"
-        - "*.yaml"
 
 default:
   kubernetes_src: env/default/kubernetes
@@ -725,8 +726,10 @@ gopro generate docker-compose -e local
 
 Unlike the other two generate commands, this one has no output-directory flag:
 output goes to `docker_compose_tgt`, or the current directory when that is unset.
-It also does not clear the target directory first, since it renders into a shared
-directory rather than one named after a component.
+It also does **not** clear the target directory first, since it renders into a
+shared directory rather than one named after a component — below, `dist` also
+holds the config and Kubernetes output. Output of a template that has since been
+renamed or removed therefore stays in the target until you delete it.
 
 #### Configuration Example
 
@@ -880,7 +883,7 @@ build:
       prefix: custom-registry.io       # Optional: override prefix
       repo: my-api-service            # Optional: custom repo name
       tag: v2.0.0                     # Optional: override tag
-      no_push: false                  # Optional: skip pushing
+      no_push: false                  # Optional: true skips pushing
 
     - name: worker
       base: golang:1.21-alpine
@@ -1033,31 +1036,39 @@ data: [[ FromConfigFile "api" "database.conf" ]]
 
 #### FromConfigJSON
 
-Extract JSON values using JSONPath:
+Extract a value from a generated JSON config file by
+[gjson path](https://github.com/tidwall/gjson/blob/master/SYNTAX.md):
 
 ```yaml
-# Reads from dist/config/api/config.json and extracts .database.host
+# Reads dist/config/api/config.json and extracts database.host
 host: [[ FromConfigJSON "api" "config.json" "database.host" ]]
 ```
 
 #### FromSecretEnv
 
-Read key-value pairs from secret.env (reads directly from the source config directory, not from dist/):
+Read one key from a component's `secret.env`. The file is read from the source
+config directory, `<config_src>/<name>/secret.env`, not from `dist/`:
 
 ```yaml
-# Reads from env/<environment>/config/api/secret.env (source directory)
+# Reads env/prod/config/api/secret.env when config_src is env/prod/config
 password: [[ FromSecretEnv "api" "DB_PASSWORD" ]]
 ```
 
 Format of `secret.env`:
 ```bash
+# blank lines and lines starting with # are skipped
 DB_PASSWORD=supersecret
 API_KEY=abc123
 ```
 
+Values are used verbatim apart from surrounding whitespace; quotes are not
+stripped. Only the selected environment's `config_src` is consulted — there is
+no fallback to the default layer's file — and a missing file or key fails the
+render.
+
 ### Sprig Functions
 
-All [Sprig v3](http://masterminds.github.io/sprig/) functions are available:
+All [Sprig v3](https://masterminds.github.io/sprig/) functions are available:
 
 ```yaml
 # String functions
@@ -1181,11 +1192,12 @@ gopro build image -f "api.*"
 gopro generate config -f "api.*"
 
 # Build multiple components matching pattern
-gopro build binary -f "(api|worker)"
-
-# Build everything except test components
-gopro build binary -f "^(?!.*test).*$"
+gopro build binary -f "^(api|worker)$"
 ```
+
+Filters use Go's RE2 regex syntax, which has no lookahead, so an "everything
+except" pattern such as `^(?!.*test).*$` is rejected as invalid. Match the
+components to keep instead.
 
 ### Custom Output Directories
 
@@ -1311,7 +1323,7 @@ env:
       - --build-arg=VERSION=1.2.3
 ```
 
-Gopro's own `-t`, `-f` and the four build args above are reserved, so setting
+GoPro's own `-t`, `-f` and the four build args above are reserved, so setting
 them in `image_build_args` is an error.
 
 Builds run with `--no-cache` unless `--cache` is given.
@@ -1372,8 +1384,8 @@ gopro generate config -e prod
 # 5. Generate Kubernetes manifests
 gopro generate kubernetes -e prod
 
-# 6. Apply to cluster
-kubectl apply -f dist/prod/kubernetes/
+# 6. Apply to cluster (-R: manifests sit in one subdirectory per template)
+kubectl apply -R -f dist/prod/kubernetes/
 ```
 
 ### Multi-Platform Release Workflow
@@ -1401,7 +1413,8 @@ gopro build binary -e prod
 cd bin/
 tar -czf cli-linux-amd64.tar.gz cli_linux_amd64
 tar -czf cli-darwin-arm64.tar.gz cli_darwin_arm64
-zip cli-windows-amd64.zip cli_windows_amd64.exe
+# Windows output is cli_windows_amd64, with no .exe suffix; add it when packaging
+cp cli_windows_amd64 cli.exe && zip cli-windows-amd64.zip cli.exe
 ```
 
 ### Staging Environment Workflow
@@ -1413,7 +1426,9 @@ env:
     image_prefix: staging-registry.io/myapp
     image_tag: staging-latest
     config_src: env/staging/config
+    config_tgt: dist/staging/config
     kubernetes_src: env/staging/kubernetes
+    kubernetes_tgt: dist/staging/kubernetes
 ```
 
 ```bash
@@ -1421,7 +1436,7 @@ env:
 gopro build image -e staging --push
 gopro generate config -e staging
 gopro generate kubernetes -e staging
-kubectl apply -f dist/staging/kubernetes/ --namespace=staging
+kubectl apply -R -f dist/staging/kubernetes/ --namespace=staging
 ```
 
 ### Configuration Template Testing
@@ -1471,8 +1486,8 @@ gopro build binary -c /path/to/project.yaml  # Or specify a path
 Git information is collected on a best-effort basis: outside a repository, or
 with `git` unavailable, commands still succeed and simply inject empty
 `GitTag`, `GitBranch`, and `GitCommit` values. There is no error — the symptom
-is a binary whose `gopro version` and `info.Git*` fields come back blank, and a
-`version` that falls back to empty because it derives from the Git tag.
+is a binary whose `info.Git*` fields come back blank, along with the build and
+product versions when those derive from the Git tag.
 
 **Solution**: Initialize a Git repository and create at least one commit, so
 `git describe --tags --always` has something to report:
@@ -1573,9 +1588,22 @@ delete the templates about to be rendered.
 Leaving the target unset is a supported layout, not an error; it just means old
 output persists alongside the templates.
 
+`gopro generate docker-compose` never clears its target, whatever the layout: it
+renders into a shared directory, so output of a renamed or removed template
+stays until you delete it.
+
 #### 9. Module Path Not Found
 
-If the module path cannot be resolved, set it explicitly:
+With `module` unset and no `go.mod` beside `project.yaml`, the module path is
+empty. Builds still run, but inject an empty `ProjectName`, and `gopro init`
+stops at `initializing go module`: it runs `go mod init` without a path, which
+Go refuses outside GOPATH.
+
+```
+Error: go mod init: exit status 1; set module in project.yaml, go could not infer a module path here
+```
+
+**Solution**: Set it explicitly:
 ```yaml
 module: github.com/user/myapp
 ```
@@ -1596,11 +1624,10 @@ gopro build binary -v
 gopro generate config -v -e prod
 ```
 
-This shows:
-- Executed commands with arguments
-- Environment variables
-- File operations
-- Template rendering details
+This adds:
+- Each executed command with its arguments
+- The environment variables gopro adds to it (never the inherited environment)
+- The assembled `docker build` arguments, and a notice when a render is in place
 
 ### Validation
 
@@ -1654,7 +1681,7 @@ git add env/
 
 ### 2. Secret Management
 
-`secret.env` files are used **only as a rendering source** for `FromSecretEnv` — they are read directly from the source config directory and are **never copied to the output directory**. Do NOT list `secret.env` in the `files` patterns.
+`secret.env` files are **only a rendering source** for `FromSecretEnv`, which reads them directly from the source config directory. A file named `secret.env` is **never written to the output directory**, even when a `files` pattern matches it or `files` is absent. Releases up to v0.1.11 did copy it in those two cases, so keep it out of `files` regardless.
 
 ```yaml
 # secret.env is NOT listed in files — it is read from source by FromSecretEnv
@@ -1665,9 +1692,9 @@ generate:
         - "*.yaml"
 ```
 
-```bash
-# .gitignore (gopro init adds this automatically)
-secret.env  # Don't commit actual secrets
+```gitignore
+# .gitignore — gopro init adds this entry
+secret.env
 ```
 
 Place `secret.env` alongside the config templates it serves — GoPro reads it from
@@ -1676,8 +1703,8 @@ committing values, check in a placeholder file next to it:
 
 ```bash
 # env/default/config/api/secret.env.example  (committed)
-DB_PASSWORD="YOUR_DB_PASSWORD"
-API_KEY="YOUR_API_KEY"
+DB_PASSWORD=YOUR_DB_PASSWORD
+API_KEY=YOUR_API_KEY
 ```
 
 ### 3. Environment Organization
@@ -1746,7 +1773,7 @@ default:
 - [README](README.md) — feature overview and condensed reference
 - [Example Configuration](example.project.yaml) (run `gopro example` to generate)
 - [Claude Code plugin](plugins/gopro/README.md) — packages these conventions as a skill
-- [Sprig Template Functions](http://masterminds.github.io/sprig/)
+- [Sprig Template Functions](https://masterminds.github.io/sprig/)
 - [Go Templates Documentation](https://pkg.go.dev/text/template)
 - [Framingo Package](https://github.com/xhanio/framingo)
 

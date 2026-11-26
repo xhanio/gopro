@@ -24,7 +24,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 | Generate configs | `gopro generate config -e <env>` |
 | Generate K8s manifests | `gopro generate kubernetes -e <env>` |
 | Generate docker-compose | `gopro generate docker-compose -e <env>` |
-| Show version info | `gopro version` |
+| Show gopro's own version | `gopro version` |
 
 ### Global Flags
 
@@ -39,7 +39,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 - `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`), `--cache` (use the docker layer cache; default builds with `--no-cache`)
 - `gopro generate`: `-x/--prefix` (template prefix, default `template.`) on all three subcommands
 - `gopro generate config`: `-o/--output` — `gopro generate kubernetes`: `-t/--output`
-- `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`
+- `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`, which is never cleared first
 
 ## Configuration Structure
 
@@ -51,7 +51,7 @@ product: myapp              # Required
 model: standard             # Optional; sets info.ProductModel
 version: v1.0.0             # Optional
 domain: example.com         # Optional
-module: github.com/user/app # Auto-detected from go.mod
+module: github.com/user/app # Read from go.mod when unset; `gopro init` needs one of the two
 
 # Base settings shared across environments
 default:
@@ -80,10 +80,13 @@ env:
     binary_build_env: [CGO_ENABLED=1]
     config_src: env/local/config
     config_tgt: dist/local/config
+    docker_compose_tgt: dist/local
   prod:
     binary_build_env: [CGO_ENABLED=0, GOOS=linux, GOARCH=amd64]
     image_prefix: prod-registry.io/myapp
     image_tag: v1.0.0
+    config_tgt: dist/prod/config
+    kubernetes_tgt: dist/prod/kubernetes
 
 # Build and generate specifications
 build:
@@ -110,7 +113,7 @@ generate:
   configs:
     - name: api
       files: ["*.yaml", "*.json", "cert/*"]
-      # NOTE: Do NOT include secret.env in files — see below
+      # NOTE: secret.env is never copied to output — see below
   kubernetes:
     - name: api
       files: ["deployment.yaml", "service.yaml"]
@@ -229,7 +232,7 @@ GoPro projects store application configuration in `config.yaml` (or other struct
 - **`config.yaml`** — structured application config (database hosts, ports, feature flags, etc.), placed in environment config directories (e.g., `env/default/config/api/config.yaml`)
 - **`secret.env`** — secret key-value pairs (passwords, API keys, tokens), placed alongside config files (e.g., `env/default/config/api/secret.env`)
 
-These files live under `env/<environment>/config/<component>/` and are rendered by `gopro generate config` into the output directory. Templates can read from them at generation time using `FromConfigFile`, `FromConfigJSON`, and `FromSecretEnv` functions.
+These files live under `env/<environment>/config/<component>/`. `gopro generate config` renders the config files into the output directory; `secret.env` stays in the source. Templates read values at generation time with `FromConfigFile` and `FromConfigJSON` (from generated output) and `FromSecretEnv` (from the source `secret.env`).
 
 ```
 env/default/config/api/
@@ -240,9 +243,9 @@ env/default/config/api/
 
 ## Important: `secret.env` Is for Rendering Only — Never in Output or Git
 
-The `secret.env` file exists **solely as a source for template rendering** — it is read by `FromSecretEnv` directly from the **source** config directory (e.g., `env/default/config/api/secret.env`) during `gopro generate`. It is **never copied to the output directory** (`dist/`).
+The `secret.env` file exists **solely as a source for template rendering** — it is read by `FromSecretEnv` directly from the **source** config directory (e.g., `env/default/config/api/secret.env`) during `gopro generate`. It is **never copied to the output directory** (`dist/`): `gopro generate` skips any file named `secret.env`, even when a `files` pattern matches it.
 
-**Do NOT list `secret.env` in the `files` patterns** of `generate.configs` — it should not appear in generated output. `FromSecretEnv` reads it from the source directory, so it does not need to be in `dist/`.
+**Still keep `secret.env` out of the `files` patterns** of `generate.configs`. Listing it has no effect now, but releases up to v0.1.11 copied it whenever `files` matched it or was absent.
 
 **`secret.env` must be added to the project's `.gitignore`** to prevent secrets from being committed to version control. When scaffolding or initializing a GoPro project, always ensure `.gitignore` includes:
 
@@ -279,7 +282,7 @@ Templates use `[[` and `]]` delimiters (not `{{ }}`). Files prefixed with `templ
 | `FromConfigJSON` | `[[ FromConfigJSON "api" "config.json" "db.host" ]]` | Extract JSON value by path |
 | `FromSecretEnv` | `[[ FromSecretEnv "api" "DB_PASS" ]]` | Read key from secret.env |
 
-All [Sprig v3](http://masterminds.github.io/sprig/) functions are also available (upper, lower, default, b64enc, list, join, etc.).
+All [Sprig v3](https://masterminds.github.io/sprig/) functions are also available (upper, lower, default, b64enc, list, join, etc.).
 
 ### Template Example (Kubernetes Deployment)
 
@@ -319,7 +322,7 @@ gopro init                       # creates dirs, go.mod, git init
 # Step 3: Add source code, templates, and Dockerfiles
 ```
 
-Do NOT create directories manually or run `go mod init` yourself — `gopro init` handles all of that based on `project.yaml`.
+Do NOT create directories manually or run `go mod init` yourself — `gopro init` handles all of that based on `project.yaml`. Set `module` there first: with neither `module` nor an existing `go.mod`, `gopro init` stops at `go mod init` and says to set it.
 
 **`gopro init` must be completed before writing any code.** The scaffolded directory structure and `go.mod` are prerequisites for all implementation work. Writing code before `gopro init` risks placing files in wrong locations, missing required directories, or having an inconsistent module setup.
 
@@ -340,7 +343,7 @@ gopro build binary -e prod
 gopro build image -e prod --push --latest    # pushes :v1.0.0 and :latest
 gopro generate config -e prod
 gopro generate kubernetes -e prod
-kubectl apply -f dist/prod/kubernetes/
+kubectl apply -R -f dist/prod/kubernetes/    # -R: one subdirectory per template
 ```
 
 ### Publishing a Moving `:latest` Alongside the Version
@@ -390,7 +393,7 @@ env:
     config_src: env/prod/config        # overrides for prod
 ```
 
-If you skip creating the environment directory, builds will succeed but `gopro generate` will produce no output or fail with missing path errors.
+If you skip creating the environment directory, builds will succeed but `gopro generate` silently produces no output: a missing source directory is skipped, not reported.
 
 ## Directory Layout
 
@@ -399,7 +402,7 @@ project-root/
 ├── project.yaml
 ├── build/
 │   ├── binary/{name}/          # Binary source (or cmd/{name})
-│   └── image/{name}/Dockerfile # Docker build contexts
+│   └── image/{name}/Dockerfile # Dockerfiles (build context is the project root)
 ├── env/                        # REQUIRED: at least env/default/
 │   ├── default/
 │   │   ├── config/{name}/      # Base config templates
@@ -419,7 +422,7 @@ Projects using GoPro **must** be built with `gopro build binary`, not raw `go bu
 # CORRECT - injects version, git tag, branch, build time, product info
 gopro build binary -e local
 
-# WRONG - no build info injected, `gopro version` will show empty fields
+# WRONG - no build info injected; every info.* field stays empty
 go build -o myapp ./cmd/myapp
 ```
 
@@ -428,7 +431,7 @@ Fifteen fields are injected: `ApplicationName`, `ApplicationVersion`,
 `BuildDate`, `BuildTime`, `GitBranch`, `GitTag`, `GitCommit`, `ProjectName`,
 `ProjectPath`, and `ProjectRoot`. They are set on
 `github.com/xhanio/framingo/pkg/types/info` package vars and readable at runtime
-(e.g. via `gopro version`). The `--product-model`, `--product-version`,
+(e.g. via `info.GetBuildInfo()`). The `--product-model`, `--product-version`,
 `--build-version`, `--build-type`, and `--build-date` flags each override the
 matching field. See `references/REFERENCE.md` for where every value comes from.
 
@@ -444,4 +447,8 @@ matching field. See `references/REFERENCE.md` for where every value comes from.
 - **Empty version info**: Binary was built with `go build` instead of `gopro build binary`
 - **Generated output missing old files**: Expected when `config_tgt`/`kubernetes_tgt` names a directory of its own — it is wiped before each render so output reflects only current sources
 - **Stale files persist instead**: The opposite case, an in-place render. With `config_tgt`/`kubernetes_tgt` unset the output goes beside the templates, so the target is *not* cleared — clearing it would delete the templates. Set a distinct target (e.g. `dist/`) for a clean render every time
+- **Stale docker-compose output**: `generate docker-compose` never clears `docker_compose_tgt`, a shared directory. Delete the output of a renamed or removed template by hand
+- **`unknown environment "x"`**: `-e` names an environment not declared under `env:`. Nothing falls back to `default`
+- **`build args may not set ...` / `build args take flags only`**: `-o`, `-X` on the framingo `info` package, and positional arguments are reserved for gopro in `binary_build_args`/`build_args`/`args`. `image build args may not set ...` is the same rule for `-t`, `-f` and the four injected `--build-arg`s in `image_build_args`
+- **`gopro init` stops at `go mod init`**: `module` is unset and there is no `go.mod`. Set `module` in `project.yaml`
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line

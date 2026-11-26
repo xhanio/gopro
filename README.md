@@ -24,7 +24,7 @@ Or build locally:
 ```bash
 git clone https://github.com/xhanio/gopro.git
 cd gopro
-go build -o gopro main.go
+go build -o gopro .
 ```
 
 ### Claude Code plugin
@@ -50,7 +50,9 @@ gopro example
 ```
 
 This saves an example `project.yaml` to the current directory. It refuses to
-overwrite an existing one.
+overwrite an existing one. Set `product` in it, and `module` unless the directory
+already has a `go.mod`: `gopro init` runs `go mod init` with it, and Go refuses a
+missing module path outside GOPATH.
 
 Then initialize the project structure:
 
@@ -165,7 +167,7 @@ build:
 generate:
   configs:
     - name: api
-      files: ["*.yaml", "*.json"]  # File patterns to process (do NOT include secret.env — it is read from source by FromSecretEnv)
+      files: ["*.yaml", "*.json"]  # File patterns to process (secret.env is never copied; FromSecretEnv reads it from source)
 
   kubernetes:
     - name: api
@@ -183,16 +185,17 @@ All commands support these global flags:
 
 - `-c, --config <path>`: Specify configuration file path (default: `project.yaml`)
 - `-e, --environment <name>`: Target environment (`local`, `prod`, or custom). When omitted (or `default`), the `default` section is used as-is; a named environment is merged on top of `default`, and a name not declared under `env` is an error
-- `-f, --filter <regex>`: Filter components using regex pattern (default: `.*`)
+- `-f, --filter <regex>`: Filter components by name with a Go (RE2) regex (default: `.*`)
 - `-v, --verbose`: Enable verbose output for debugging
+- `-h, --help`: Show help for any command
 
 ### Project Commands
 
 ```bash
 gopro example                          # Write an example project.yaml to the current directory
 gopro init                             # Create project directories, git repo, go module, .gitignore
-gopro init -e prod                     # Only create directories for the prod environment
-gopro version                          # Print version and build time
+gopro init -e prod                     # Directories for default plus prod only
+gopro version                          # Print gopro's own version and build time
 ```
 
 `gopro init` creates directories for `default` plus every environment in
@@ -228,13 +231,16 @@ Additional flags:
 - **Layered build environment and flags**: Three levels, resolved differently
   - `binary_build_env` → binary `build_env` → platform `env` are **merged** key-wise: each level overrides only the variables it names and inherits the rest
   - `binary_build_args` → binary `build_args` → platform `args` **replace** wholesale: the most specific level that sets a list wins, because Go build flags are positional and repeatable, so a key-wise merge cannot tell an override from an accumulation. Only an unset level inherits — an explicitly empty list means "build with no arguments"
-  - The chosen args are then assembled into one `go build` line: `-ldflags`, `-gcflags`, `-asmflags` and `-gccgoflags` **accumulate** (occurrences sharing a package pattern join into one flag, and the injected metadata joins `-ldflags`), unlike raw `go build` where the last one wins. `-o` and `-X` on `github.com/xhanio/framingo/pkg/types/info` are reserved for gopro and rejected, as is any positional argument (gopro supplies the package); every other flag passes through
+  - The chosen args are then assembled into one `go build` line. Flags pass through unchanged, with three exceptions:
+    - `-ldflags`, `-gcflags`, `-asmflags` and `-gccgoflags` **accumulate**: occurrences sharing a package pattern join into one flag, where raw `go build` keeps only the last, and the injected metadata joins `-ldflags`
+    - `-o` and `-X` on `github.com/xhanio/framingo/pkg/types/info` are reserved for gopro and rejected
+    - Positional arguments are rejected: gopro supplies the package
 
-- **Build metadata injection**: Automatic version info embedding via `-ldflags`
-  - Product model, version, and build type
-  - Git-based build version (tags/commits)
-  - Build date and custom metadata
-  - Override with command-line flags if needed
+- **Build metadata injection**: Fifteen fields embedded via `-ldflags`, readable through [framingo](https://github.com/xhanio/framingo)'s `info` package
+  - Application name and version (per binary); product name, model, and version
+  - Git branch, tag, and commit; build version (the Git tag by default), type, date, and time
+  - Project name (the module path), path, and root
+  - The flags above override the product model and version and the build version, type, and date
 
 - **Environment-specific builds**: Customize per environment
   - Apply environment variables (e.g., `CGO_ENABLED=0` for static builds)
@@ -279,7 +285,11 @@ Additional flags:
   - Skip specific images with `no_push: true`
   - Only pushes successfully built images
 
-- **Build execution**: Images build with `--no-cache` unless `--cache` is given, using `{build_src}/Dockerfile` with the project root as build context, inherit `image_build_env` as the Docker environment, and pass `image_build_args` through to `docker build` (`-t`, `-f` and the injected build args are reserved)
+- **Build execution**:
+  - Builds `{build_src}/Dockerfile` with the project root as the build context
+  - Passes `--no-cache` unless `--cache` is given
+  - Adds `image_build_env` to the environment of `docker build` and `docker tag`
+  - Appends `image_build_args` to `docker build`; `-t`, `-f` and the four injected build args are reserved for gopro and rejected
 
 ### Generate Commands
 
@@ -319,9 +329,12 @@ unless the render is in place.
 gopro generate docker-compose -e local # Generate docker-compose.yaml
 ```
 
-Output goes to `docker_compose_tgt` (or the current directory when unset). Unlike
-config and Kubernetes generation, this command has no output flag and does not
-clear the target directory.
+Output goes to `docker_compose_tgt` (or the current directory when unset); there
+is no output flag. Unlike config and Kubernetes generation, the target is **not
+cleared** first, because it is a shared directory rather than one named after a
+component — in the example config, `dist/default` also holds the config and
+Kubernetes output. Output of a template that has since been renamed or removed
+therefore stays there until you delete it.
 
 **Template Rendering Features:**
 
@@ -344,8 +357,8 @@ clear the target directory.
   - **`GetImageNameWithTag`**: Same resolution, with an explicit tag — `GetImageNameWithTag "api" "latest"`
   - **`FromFile`**: Read file content from any path
   - **`FromConfigFile`**: Read from generated config files
-  - **`FromConfigJSON`**: Extract JSON values via JSONPath
-  - **`FromSecretEnv`**: Read key-value pairs from `secret.env`
+  - **`FromConfigJSON`**: Extract a value from a generated JSON config by [gjson path](https://github.com/tidwall/gjson/blob/master/SYNTAX.md)
+  - **`FromSecretEnv`**: Read a key from the component's `secret.env` in the source directory
 
 - **Template context** (available in templates):
   ```go
@@ -359,7 +372,8 @@ clear the target directory.
   - Use `files` array with glob patterns in configuration
   - Example: `["*.yaml", "*.json"]` to process only specific file types
   - A pattern without a `/` matches by file name at any depth, so `*.yaml` also selects `sub/config.yaml`; a pattern containing one is matched against the whole relative path, so `cert/*` stays scoped to `cert/`
-  - Useful for excluding sensitive files or controlling what gets generated
+  - An absent or empty `files` list processes every file
+  - A file named `secret.env` is never written to output, even when a pattern matches it
 
 - **Directory structure preserved**: A template keeps the subdirectory it was
   authored in — `sub/template.config.yaml` renders to `sub/config.yaml`, not to
@@ -464,6 +478,7 @@ The project follows a modular CLI architecture using Cobra:
   - `example.go`: Example configuration file generation command (uses `example.project.yaml` from project root via `types.ExampleProjectYAML`)
   - `version.go`: Version information command
   - `util_config.go`: Project/environment loading and shared state
+  - `util_buildargs.go`: Assembly of the `go build` arguments
   - `util_*.go`: Utility functions for execution, rendering, and printing
 - **[pkg/types/](pkg/types/)**: Configuration data structures and loading logic
   - `project.go`: Project, build, and generate structures, plus image name resolution
