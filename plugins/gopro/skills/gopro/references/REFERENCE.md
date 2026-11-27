@@ -150,6 +150,13 @@ docker build -t <image> [--no-cache] \
 `--no-cache` is passed unless `--cache` is given. The build context is always
 the project root, so a Dockerfile may `COPY` from anywhere in the repository.
 
+That includes every `secret.env` under `env/` unless an ignore file excludes it.
+Before each Dockerfile build gopro warns about each one left in the context,
+applying the patterns docker will: `<build_src>/Dockerfile.dockerignore` when
+it exists (BuildKit reads it instead of the root's), else `.dockerignore`. The
+build still runs. `gopro init` adds `**/secret.env` to `.dockerignore`; it does
+not exclude `bin/` or `dist/`, which Dockerfiles copy from.
+
 ## Image Tagging and Push
 
 Image references resolve as `[prefix/]repo:tag`, where `prefix` falls back to

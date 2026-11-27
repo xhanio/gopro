@@ -119,7 +119,8 @@ generate:
         # secret.env needs no entry: it is never copied to the output directory,
         # even when a pattern matches it. FromSecretEnv reads it from the source,
         # beside the config files (e.g., env/default/config/demo/secret.env).
-        # Keep "secret.env" in .gitignore; gopro init adds it.
+        # Keep "secret.env" in .gitignore and "**/secret.env" in .dockerignore;
+        # gopro init adds both.
 
   kubernetes:
     - name: demo

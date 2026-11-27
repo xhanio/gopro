@@ -61,8 +61,10 @@ gopro init
 ```
 
 This creates the source and target directories declared in `project.yaml`,
-initializes a Git repository and Go module if they are missing, and adds
-`bin/`, `dist/`, `test/`, and `secret.env` to `.gitignore`.
+initializes a Git repository and Go module if they are missing, adds `bin/`,
+`dist/`, `test/`, and `secret.env` to `.gitignore`, and adds `**/secret.env` to
+`.dockerignore` (keeping `bin/` and `dist/` in the build context, since
+Dockerfiles copy binaries and rendered config from them).
 
 ## Configuration
 
@@ -293,6 +295,7 @@ Additional flags:
 
 - **Build execution**:
   - Builds `{build_src}/Dockerfile` with the project root as the build context
+  - Warns before the build about each `secret.env` that `.dockerignore` (or the Dockerfile's own `Dockerfile.dockerignore`) leaves in that context
   - Passes `--no-cache` unless `--cache` is given
   - Adds `image_build_env` to the environment of `docker build` and `docker tag`
   - Appends `image_build_args` to `docker build`; `-t`, `-f` and the four injected build args are reserved for gopro and rejected

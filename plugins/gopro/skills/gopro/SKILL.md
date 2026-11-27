@@ -254,6 +254,8 @@ The `secret.env` file exists **solely as a source for template rendering** — i
 secret.env
 ```
 
+**`secret.env` must also stay out of Docker images.** The build context is the project root, so every `secret.env` under `env/` is sent to docker unless `.dockerignore` excludes it, and a Dockerfile's `COPY . .` puts it in the image. `gopro init` adds `**/secret.env` to `.dockerignore`, and `gopro build image` warns about any `secret.env` left in the context. Do not exclude `bin/` or `dist/` there: Dockerfiles copy binaries and rendered config from them.
+
 In CI/CD or production pipelines, `secret.env` files should be provisioned from a secrets manager (Vault, AWS Secrets Manager, etc.) before running `gopro generate`, and discarded afterward.
 
 ## Template System
@@ -309,7 +311,7 @@ spec:
 
 The first step is always to design a proper `project.yaml` — this is the blueprint for the entire project. Define the project metadata (`product`, `module`, `version`), directory layout (`binary_src`, `config_src`, etc.), environments, build targets, and generate specs before running anything. Use `gopro example` to generate a reference template, then customize it to match the project's needs.
 
-Once `project.yaml` is ready, run `gopro init` to scaffold the project. This creates all the directories defined in the config (binary source, image build, environment config/kubernetes/docker-compose dirs) and initializes `go.mod` and git.
+Once `project.yaml` is ready, run `gopro init` to scaffold the project. This creates all the directories defined in the config (binary source, image build, environment config/kubernetes/docker-compose dirs), initializes `go.mod` and git, and writes the `.gitignore` and `.dockerignore` entries that keep `secret.env` out of git and out of images.
 
 ```bash
 # Step 1: Design project.yaml first (use example as a starting point)
@@ -452,4 +454,5 @@ matching field. See `references/REFERENCE.md` for where every value comes from.
 - **`build args may not set ...` / `build args take flags only`**: `-o`, `-X` on the framingo `info` package, and positional arguments are reserved for gopro in `binary_build_args`/`build_args`/`args`. `image build args may not set ...` is the same rule for `-t`, `-f` and the four injected `--build-arg`s in `image_build_args`
 - **`gopro init` stops at `go mod init`**: `module` is unset and there is no `go.mod`. Set `module` in `project.yaml`
 - **`project.yaml is invalid`**: a component name is not a single path element (empty, `.`, `..`, or holding `/`), is defined or listed twice, or a `binaries`/`images`/`configs`/`kubernetes_templates` entry or a `$name` base names nothing defined. Every problem is listed; defining a component without listing it is fine
+- **`the build context includes .../secret.env`**: `.dockerignore` (or the Dockerfile's own `Dockerfile.dockerignore`) does not exclude it, so `docker build` receives it. Add `**/secret.env`; `gopro init` does
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line

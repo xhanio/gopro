@@ -78,7 +78,7 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 	if err := createOrUpdateGitignore(); err != nil {
 		return err
 	}
-	return nil
+	return createOrUpdateDockerignore()
 }
 
 // createEnvDirectories creates all source and target directories for a given environment

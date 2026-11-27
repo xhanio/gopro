@@ -79,7 +79,7 @@ This command will:
 - Initialize Git repository (if not already initialized)
 - Initialize Go module (if go.mod doesn't exist)
 - Create directory structure based on configuration
-- Create/update `.gitignore` file
+- Create/update `.gitignore` and `.dockerignore`
 
 ### 3. Build Your Binary
 
@@ -157,6 +157,10 @@ gopro init -c custom.yaml  # Use custom config file
    - `dist/` - Generated files directory
    - `test/` - Test directory
    - `secret.env` - Secrets read by `FromSecretEnv` at render time
+5. **Dockerignore**: Creates or updates `.dockerignore` so it excludes
+   `**/secret.env`, appending the rule only when the existing ones do not
+   already cover it. `bin/` and `dist/` are left in the build context, since
+   Dockerfiles copy binaries and rendered config from them.
 
 #### Example Output
 
@@ -173,6 +177,7 @@ added to .gitignore: bin/
 added to .gitignore: dist/
 added to .gitignore: test/
 added to .gitignore: secret.env
+added to .dockerignore: **/secret.env
 ```
 
 The git and go-module lines appear only when those are missing. Entries are
@@ -508,6 +513,12 @@ the `docker build` and `docker tag` invocations.
 `--platform`, `--target`, `--secret`, or more `--build-arg`s), placed after
 gopro's own and before the Dockerfile and context. `-t`/`--tag`, `-f`/`--file`
 and the four injected build args are reserved for gopro and rejected.
+
+The build context is the project root, so every `secret.env` under `env/` is sent to docker unless `.dockerignore` excludes it, and a Dockerfile's `COPY . .` puts it in the image. Before each Dockerfile build, gopro
+warns about every `secret.env` the patterns docker will apply leave in the
+context: those of `<build_src>/Dockerfile.dockerignore` when it exists (BuildKit
+reads it in place of the root's), else of `.dockerignore`. The warning does not
+stop the build. `gopro init` adds `**/secret.env` to `.dockerignore`.
 
 ### generate config Command
 
@@ -1717,6 +1728,11 @@ generate:
 ```gitignore
 # .gitignore — gopro init adds this entry
 secret.env
+```
+
+```
+# .dockerignore — gopro init adds this entry; the build context is the project root
+**/secret.env
 ```
 
 Place `secret.env` alongside the config templates it serves — GoPro reads it from

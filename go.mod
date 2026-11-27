@@ -5,6 +5,7 @@ go 1.24.5
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/fatih/color v1.18.0
+	github.com/moby/patternmatcher v0.6.0
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00
 	github.com/spf13/cobra v1.10.1
 	github.com/tidwall/gjson v1.14.4

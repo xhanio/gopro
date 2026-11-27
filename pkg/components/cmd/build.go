@@ -126,6 +126,8 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 	if pushLatest && !pushImage {
 		warnf("--latest has no effect without --push; ignoring")
 	}
+	var secrets []string // secret.env files in the build context, found once
+	secretsFound := false
 	for _, name := range env.Images {
 		if !filterRegex.MatchString(name) {
 			continue
@@ -157,6 +159,17 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 				buildBase := image.Base
 				if baseName, ok := strings.CutPrefix(buildBase, "$"); ok {
 					buildBase = GetImageName(baseName)
+				}
+				if !secretsFound {
+					found, err := findSecretEnvFiles(info.ProjectRoot)
+					if err != nil {
+						return err
+					}
+					secrets, secretsFound = found, true
+				}
+				dockerfile := filepath.Join(info.ProjectRoot, buildSource, "Dockerfile")
+				if err := warnSecretsInContext(secrets, info.ProjectRoot, dockerfile); err != nil {
+					return err
 				}
 				err := executeBuildImage(name, buildSource, buildTarget, buildBase, imageCache)
 				if err != nil {
