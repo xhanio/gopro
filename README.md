@@ -78,7 +78,13 @@ GoPro uses a YAML-based configuration file (`project.yaml`) with the following s
 The `default`/`env` sections say *where* things live and *which* components are
 active (`binaries`, `images`, `configs`, `kubernetes_templates`); the
 `build`/`generate` sections describe *how* each named component is built or
-rendered. A component is only acted on when its name appears in both.
+rendered. A component is acted on when the selected environment lists a name
+its `build`/`generate` section defines. Defining one without listing it is fine
+— it is just not acted on in that environment — but listing a name nothing
+defines, or defining or listing a name twice, is an error. A name must be a
+single path element (not empty, `.` or `..`, and without `/` or `\`), since it
+names files and directories. Every command that reads `project.yaml` checks
+this first and reports every problem at once.
 
 When an environment overrides a `default` value, the merge is per key, not per
 element: **arrays are replaced wholesale**. An `env.local.binary_build_env` of

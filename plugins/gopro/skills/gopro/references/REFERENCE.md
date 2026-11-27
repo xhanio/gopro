@@ -40,13 +40,23 @@ gopro falls back to.
 | `docker_compose_src` | `""` | Docker Compose template source |
 | `docker_compose_tgt` | `""` | Docker Compose output directory (unset: the working directory); never cleared |
 
+### Component Names
+
+Every command that reads project.yaml first rejects, reporting all at once: a
+component name that is not a single path element (empty, `.`, `..`, or holding
+`/` or `\`), since it names files and directories and generation clears the
+component's target; a name defined twice in one section or listed twice in one
+list; a `binaries`/`images`/`configs`/`kubernetes_templates` entry, in `default`
+or any `env`, that names nothing defined; and a `$name` base naming no image.
+Defining a component without listing it is fine.
+
 ### Build Specification
 
 #### Binary Spec
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Binary name (must be listed in `binaries`) |
+| `name` | Yes | Binary name, a single path element; built only in environments whose `binaries` lists it |
 | `version` | No | Application's own version, injected as `ApplicationVersion` (default: the product version) |
 | `src` | No | Custom source path (default: `{binary_src}/{name}`) |
 | `config_dir` | No | Config directory path used in templates |
@@ -86,9 +96,9 @@ values in the build environment.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Image name (must be listed in `images`) |
+| `name` | Yes | Image name, a single path element; built only in environments whose `images` lists it |
 | `build_from` | No | Pull and tag existing image instead of building |
-| `base` | No | Base image for Dockerfile (use `$name` to cross-reference) |
+| `base` | No | Base image for Dockerfile (use `$name` to cross-reference; the name must be defined in `build.images`) |
 | `build_src` | No | Dockerfile directory (default: `{image_build_src}/{name}`) |
 | `prefix` | No | Override `image_prefix` for this image |
 | `repo` | No | Override repository name (default: `name`) |
@@ -101,7 +111,7 @@ values in the build environment.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Component name |
+| `name` | Yes | Component name, a single path element; generated only in environments whose `configs`/`kubernetes_templates` lists it |
 | `files` | No | Glob patterns for files to process (unset: every file). A `secret.env` is always skipped |
 
 **Docker Compose entry:**

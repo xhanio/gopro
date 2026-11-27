@@ -451,4 +451,5 @@ matching field. See `references/REFERENCE.md` for where every value comes from.
 - **`unknown environment "x"`**: `-e` names an environment not declared under `env:`. Nothing falls back to `default`
 - **`build args may not set ...` / `build args take flags only`**: `-o`, `-X` on the framingo `info` package, and positional arguments are reserved for gopro in `binary_build_args`/`build_args`/`args`. `image build args may not set ...` is the same rule for `-t`, `-f` and the four injected `--build-arg`s in `image_build_args`
 - **`gopro init` stops at `go mod init`**: `module` is unset and there is no `go.mod`. Set `module` in `project.yaml`
+- **`project.yaml is invalid`**: a component name is not a single path element (empty, `.`, `..`, or holding `/`), is defined or listed twice, or a `binaries`/`images`/`configs`/`kubernetes_templates` entry or a `$name` base names nothing defined. Every problem is listed; defining a component without listing it is fine
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line

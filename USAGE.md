@@ -781,6 +781,28 @@ module: github.com/user/myapp  # Go module name (optional; read from go.mod when
 The field is `module`, not `project`. When it is omitted, GoPro reads the module
 path from the `go.mod` sitting next to `project.yaml`.
 
+### Component Names
+
+`build.binaries`, `build.images`, `generate.configs` and `generate.kubernetes`
+define components by `name`; the `binaries`, `images`, `configs` and
+`kubernetes_templates` lists in `default` and `env` select which ones an
+environment acts on. Every command that reads `project.yaml` checks them first
+and reports every problem at once:
+
+- A name must be a single path element — not empty, `.` or `..`, and without
+  `/` or `\` — because it names files and directories, including the
+  component's target directory, which generation clears.
+- A name may be defined only once per section, and listed only once per list.
+- A listed name must be defined. Defining one without listing it is fine: the
+  component is just not acted on in that environment.
+- An image `base` of the form `$name` must name an image in `build.images`.
+
+```
+Error: project.yaml is invalid:
+generate.configs[0].name "..": must be a single path element, since it names files and directories
+default.binaries: "apii" is not defined in build.binaries
+```
+
 ### Default Configuration
 
 Base configuration shared across all environments:
@@ -1725,6 +1747,10 @@ env/
 ```
 
 ### 4. Consistent Naming
+
+Using one name per component across sections keeps the lists easy to check;
+gopro itself rejects a listed name that nothing defines (see
+[Component Names](#component-names)).
 
 ```yaml
 # Use consistent names across sections

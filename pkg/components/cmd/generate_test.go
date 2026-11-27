@@ -165,3 +165,29 @@ func TestGenerateKubernetesWithoutTargetRendersInPlace(t *testing.T) {
 		t.Errorf("template was not rendered in place: %v", err)
 	}
 }
+
+// A config named ".." made the config target's parent the directory cleared
+// before rendering, deleting everything beside the target.
+func TestGenerateRefusesAPathEscapingName(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeTree(t, ".", "out/keep/important.txt", "precious\n")
+	writeTree(t, ".", "src/x/a.yaml", "a: 1\n")
+	writeTree(t, ".", "project.yaml", `product: demo
+module: x.test/demo
+default:
+  config_src: src/x
+  config_tgt: out/sub
+  configs: [".."]
+generate:
+  configs:
+    - name: ".."
+`)
+	var err error
+	captureStdout(t, func() { _, err = runRoot(t, "generate", "config") })
+	if err == nil {
+		t.Fatal("generate config succeeded with a config named ..")
+	}
+	if _, statErr := os.Stat("out/keep/important.txt"); statErr != nil {
+		t.Fatalf("a file beside the config target was deleted: %v", statErr)
+	}
+}
