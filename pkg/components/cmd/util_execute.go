@@ -120,7 +120,8 @@ func executePushImage(image string) error {
 }
 
 // execute runs cmd in the inherited environment plus env. -v prints env, so
-// pass only additions, never os.Environ(), or every secret gets printed.
+// pass only additions, never os.Environ(), or every secret gets printed. The
+// command gets no stdin, so one that would prompt fails instead of blocking.
 func execute(cmd string, args []string, env []string, print bool) (string, error) {
 	if verbose {
 		debugf("executing %s %s", cmd, strings.Join(args, "\n"))
@@ -131,7 +132,6 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	if len(env) > 0 && verbose {
 		debugf("env: \n%s", strings.Join(env, "\n"))
 	}
-	p.Stdin = os.Stdin
 	buffer := bytes.NewBuffer([]byte{})
 	var ow, ew io.Writer
 	if print {

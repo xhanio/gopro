@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"os/exec"
 	"reflect"
 	"slices"
 	"strings"
@@ -145,5 +147,32 @@ func TestBuildImageHasCacheFlag(t *testing.T) {
 	}
 	if f.DefValue != "false" {
 		t.Fatalf("--cache defaults to %s, want false", f.DefValue)
+	}
+}
+
+// Commands run without gopro's stdin, so one that would prompt fails rather
+// than blocking a CI job or an agent, or reading input meant for gopro.
+func TestExecuteGivesNoStdin(t *testing.T) {
+	if _, err := exec.LookPath("cat"); err != nil {
+		t.Skip("no cat")
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = old; r.Close() })
+	if _, err := w.WriteString("typed into gopro\n"); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+
+	out, err := execute("cat", nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "" {
+		t.Fatalf("the command read gopro's stdin: %q", out)
 	}
 }

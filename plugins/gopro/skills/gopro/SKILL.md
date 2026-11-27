@@ -455,4 +455,5 @@ matching field. See `references/REFERENCE.md` for where every value comes from.
 - **`gopro init` stops at `go mod init`**: `module` is unset and there is no `go.mod`. Set `module` in `project.yaml`
 - **`project.yaml is invalid`**: a component name is not a single path element (empty, `.`, `..`, or holding `/`), is defined or listed twice, or a `binaries`/`images`/`configs`/`kubernetes_templates` entry or a `$name` base names nothing defined. Every problem is listed; defining a component without listing it is fine
 - **`the build context includes .../secret.env`**: `.dockerignore` (or the Dockerfile's own `Dockerfile.dockerignore`) does not exclude it, so `docker build` receives it. Add `**/secret.env`; `gopro init` does
+- **A command waits for input / fails asking for credentials**: gopro gives the commands it runs no stdin. Run `docker login` before `gopro build image --push`
 - Use `-v` (verbose) flag on any command for detailed debug output; it prints the resolved build env and command line

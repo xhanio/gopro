@@ -1648,6 +1648,12 @@ go mod init github.com/user/myapp
 
 The key is `module`, not `project`.
 
+### Non-interactive Runs
+
+Every command gopro runs — `go`, `docker`, `git` — gets no standard input, so
+one that would prompt fails at once instead of blocking a CI job or an agent.
+Log in to registries beforehand (`docker login`), since `--push` cannot ask.
+
 ### Debug Mode
 
 Enable verbose output for debugging:
