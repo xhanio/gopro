@@ -91,8 +91,7 @@ func FromConfigJSON(name, filename, jsonpath string) string {
 	return result.String()
 }
 
-// secretEnvFile holds a component's secrets. FromSecretEnv reads it from the
-// source directory; render never writes a file of that name to output.
+// never written to output; FromSecretEnv reads it from the source
 const secretEnvFile = "secret.env"
 
 func FromSecretEnv(name, key string) string {
@@ -136,11 +135,8 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 		if er != nil {
 			return er
 		}
-		// The template prefix names the file, not the directory holding it, so
-		// only the base name is stripped and the rest of the relative path
-		// carries through. One output path drives both the pattern match and
-		// the write, so a template keeps the subdirectory it was authored in
-		// instead of landing in the output root on top of its siblings.
+		// The prefix names the file, so only the base name loses it and a template
+		// keeps its subdirectory.
 		outRel, templated := rel, false
 		if !d.IsDir() {
 			if after, ok := strings.CutPrefix(d.Name(), prefix); ok {
@@ -153,12 +149,11 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 			return er
 		}
 		if filepath.Base(outRel) == secretEnvFile {
-			// Not even when files matches it: output is what gets shipped.
+			// even when files matches it
 			ok = false
 		}
 		if !ok || d.IsDir() {
-			// Directories are not created up front; a file creates its own
-			// parents below, so an excluded subtree leaves nothing behind.
+			// A file creates its own parents, so an excluded subtree leaves nothing.
 			return nil
 		}
 		b, er := os.ReadFile(path)

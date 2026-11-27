@@ -20,12 +20,11 @@ type EnvSpec struct {
 	BinaryBuildEnv  []string `yaml:"binary_build_env,omitempty"`
 	BinaryBuildArgs []string `yaml:"binary_build_args,omitempty"`
 
-	ImageBuildSrc string   `yaml:"image_build_src,omitempty"`
-	Images        []string `yaml:"images,omitempty"`
-	ImagePrefix   string   `yaml:"image_prefix,omitempty"`
-	ImageTag      string   `yaml:"image_tag,omitempty"`
-	ImageBuildEnv []string `yaml:"image_build_env,omitempty"`
-	// ImageBuildArgs are extra docker build flags; see dockerBuildArgs.
+	ImageBuildSrc  string   `yaml:"image_build_src,omitempty"`
+	Images         []string `yaml:"images,omitempty"`
+	ImagePrefix    string   `yaml:"image_prefix,omitempty"`
+	ImageTag       string   `yaml:"image_tag,omitempty"`
+	ImageBuildEnv  []string `yaml:"image_build_env,omitempty"`
 	ImageBuildArgs []string `yaml:"image_build_args,omitempty"`
 
 	KubernetesSrc       string   `yaml:"kubernetes_src,omitempty"`
@@ -36,8 +35,6 @@ type EnvSpec struct {
 	DockerComposeTgt string `yaml:"docker_compose_tgt,omitempty"`
 }
 
-// GetEnv returns the named environment merged over the default one. "" and
-// "default" select the default alone; any other undeclared name is an error.
 func (p *Project) GetEnv(env string) (EnvSpec, error) {
 	e, ok := p.Env[env]
 	if !ok {

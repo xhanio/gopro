@@ -51,7 +51,7 @@ func TestSecretsInBuildContext(t *testing.T) {
 	for _, rel := range []string{
 		"env/default/config/api/secret.env",
 		"env/local/config/api/secret.env",
-		".git/secret.env", // never sent to docker
+		".git/secret.env", // skipped: .git holds no working-tree files
 		"env/default/config/api/config.yaml",
 	} {
 		writeTree(t, root, rel, "K=v\n")

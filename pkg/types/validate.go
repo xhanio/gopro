@@ -8,11 +8,7 @@ import (
 	"strings"
 )
 
-// Validate reports every component a project names wrongly: a name that is
-// not a single path element, one defined twice, a list entry or $base that
-// names nothing defined, and a list entry given twice. Nothing reported here
-// is ever acted on as written, and a name like ".." would make generation
-// clear the parent of its target.
+// Names become paths gopro clears, so ".." would clear a target's parent.
 func (p *Project) Validate() error {
 	var errs []error
 	defined := map[string][]string{
@@ -41,7 +37,6 @@ func (p *Project) Validate() error {
 	return errors.Join(errs...)
 }
 
-// definitions checks the names in a definition list and returns them.
 func definitions[T any](errs *[]error, list string, specs []T, name func(T) string) []string {
 	names := make([]string, 0, len(specs))
 	for i, spec := range specs {
@@ -57,8 +52,6 @@ func definitions[T any](errs *[]error, list string, specs []T, name func(T) stri
 	return names
 }
 
-// references checks that every entry of an env-level list names a defined
-// component, once.
 func references(errs *[]error, list string, entries []string, definedIn string, defined map[string][]string) {
 	for i, n := range entries {
 		if !slices.Contains(defined[definedIn], n) {

@@ -31,12 +31,10 @@ func executeBuildImage(name, src, image, base string, cache bool) error {
 	return run("docker", args, env.ImageBuildEnv)
 }
 
-// injectedBuildArgs are the --build-arg names gopro sets on every image build.
 var injectedBuildArgs = []string{"NAME", "BASE", "CONFIG_TGT", "CONFIG_DIR"}
 
-// dockerBuildArgs returns the docker build arguments, with --no-cache unless
-// cache is set. The user's args go before -f and the context, which stay
-// last. Positionals are left to docker, which rejects a second context.
+// -f and the context stay last; a stray positional is left to docker, which
+// rejects a second context.
 func dockerBuildArgs(name, src, image, base string, cache bool, user []string) ([]string, error) {
 	if err := checkReservedDockerArgs(user); err != nil {
 		return nil, err
@@ -57,9 +55,8 @@ func dockerBuildArgs(name, src, image, base string, cache bool, user []string) (
 	return args, nil
 }
 
-// checkReservedDockerArgs rejects the flags gopro sets: a second -f would
-// replace the Dockerfile, a second -t would add a tag --push never pushes,
-// and a repeated injected build arg would override gopro's value.
+// A second -f would replace the Dockerfile, a second -t add a tag --push never
+// pushes, and a repeated injected build arg override gopro's.
 func checkReservedDockerArgs(user []string) error {
 	for i := 0; i < len(user); i++ {
 		arg := user[i]
@@ -86,7 +83,6 @@ func checkReservedDockerArgs(user []string) error {
 	return nil
 }
 
-// isShortFlag reports whether arg is -c, alone or with its value attached.
 func isShortFlag(arg string, c byte) bool {
 	return len(arg) >= 2 && arg[0] == '-' && arg[1] == c
 }
@@ -115,9 +111,8 @@ func executePushImage(image string) error {
 	return run("docker", args, nil)
 }
 
-// execute runs cmd in the inherited environment plus env. -v prints env, so
-// pass only additions, never os.Environ(), or every secret gets printed. The
-// command gets no stdin, so one that would prompt fails instead of blocking.
+// -v prints env, so pass only additions, never os.Environ(). No stdin, so a
+// command that would prompt fails instead of blocking.
 func execute(cmd string, args []string, env []string, print bool) (string, error) {
 	if verbose {
 		debugf("executing %s %s", cmd, strings.Join(args, "\n"))
@@ -143,12 +138,8 @@ func execute(cmd string, args []string, env []string, print bool) (string, error
 	return buffer.String(), err
 }
 
-// buildArgsFor returns the most specific build args declared. Unlike build env
-// these replace rather than merge: go build flags are positional and
-// repeatable, so a key-wise merge cannot tell an override from an
-// accumulation. Only an unset level inherits, so an empty list is a way to
-// build with no arguments at all -- which is why this tests nil rather than
-// length, and why sliceutil.Last can't stand in ([]string isn't comparable).
+// Args replace rather than merge: go build flags are positional and
+// repeatable. Only an unset (nil) level inherits, so [] means no args.
 func buildArgsFor(e types.EnvSpec, binary types.BinarySpec, platform types.PlatformSpec) []string {
 	args := e.BinaryBuildArgs
 	if binary.BuildArgs != nil {
@@ -160,11 +151,10 @@ func buildArgsFor(e types.EnvSpec, binary types.BinarySpec, platform types.Platf
 	return args
 }
 
-// executeBuildBinary builds one binary for one platform. A zero PlatformSpec
-// builds for the host, inheriting everything and pinning no GOOS/GOARCH.
+// A zero PlatformSpec builds for the host.
 func executeBuildBinary(binary types.BinarySpec, platform types.PlatformSpec, src, dst string) error {
 	name := binary.Name
-	// Each level overrides only the variables it names, inheriting the rest.
+	// Each level overrides only the variables it names.
 	envs := envutil.Merge(env.BinaryBuildEnv, binary.BuildEnv, platform.Env)
 	if platform.Name != "" {
 		parts := strings.Split(platform.Name, "/")
@@ -172,7 +162,6 @@ func executeBuildBinary(binary types.BinarySpec, platform types.PlatformSpec, sr
 			return errors.New("unknown platform " + platform.Name)
 		}
 		name = fmt.Sprintf("%s_%s_%s", name, parts[0], parts[1])
-		// The platform being built for outranks any GOOS/GOARCH in build_env.
 		envs = envutil.Merge(envs, []string{"GOOS=" + parts[0], "GOARCH=" + parts[1]})
 	}
 	buildArgs, err := assembleBuildArgs(buildArgsFor(env, binary, platform), injectInfo())

@@ -26,9 +26,8 @@ func NewVersionCmd() *cobra.Command {
 	}
 }
 
-// toolVersion returns gopro's own version: the tag injected when gopro is
-// built with gopro, else the module version the go command recorded (set by
-// go install, "(devel)" for a local build).
+// The injected tag, else what the go command recorded: the module version
+// for go install, "(devel)" for a local build.
 func toolVersion(injected string, bi *debug.BuildInfo) string {
 	if injected != "" {
 		return injected

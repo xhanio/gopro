@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-// infoPackage is the package whose vars gopro sets with -X.
 const infoPackage = "github.com/xhanio/framingo/pkg/types/info"
 
-// toolFlags take a "[pattern=]args" string that go build hands to a tool.
+// flags whose value is "[pattern=]args" for a tool
 var toolFlags = map[string]bool{
 	"asmflags":   true,
 	"gccgoflags": true,
@@ -17,9 +16,7 @@ var toolFlags = map[string]bool{
 	"ldflags":    true,
 }
 
-// valueFlags are the other go build flags that take a separate value.
-// TestValueFlagsCoverGoBuild keeps the list in step with "go help build"; an
-// unlisted flag still works as -name=value.
+// Kept in step with "go help build" by TestValueFlagsCoverGoBuild.
 var valueFlags = map[string]bool{
 	"C": true, "buildmode": true, "compiler": true, "coverpkg": true,
 	"covermode": true, "installsuffix": true, "mod": true, "modfile": true,
@@ -27,17 +24,11 @@ var valueFlags = map[string]bool{
 	"toolexec": true,
 }
 
-// assembleBuildArgs merges the user's go build args with the injected linker
-// fields. It follows go build, except:
-//
-//   - Tool flags accumulate: occurrences with the same pattern join into one
-//     flag at the first one's position, where go build keeps only the last.
-//     An empty value still resets the earlier ones.
-//   - -ldflags takes no pattern or "all=" (both reach the main package's
-//     link) and gets the injected fields appended, quoted.
-//   - -o, -X on infoPackage, and positionals are errors: gopro appends -o
-//     and the package itself, and go build stops parsing flags at the first
-//     positional.
+// assembleBuildArgs follows go build, except: tool flags with the same pattern
+// accumulate into one where go build keeps the last; -ldflags takes no pattern
+// but "all=" and gets the injected fields appended; and -o, -X on infoPackage
+// and positionals are errors, since gopro appends -o and the package itself
+// and go build stops parsing flags at a positional.
 func assembleBuildArgs(user, injected []string) ([]string, error) {
 	type key struct{ name, pattern string }
 	type merged struct {
@@ -117,9 +108,8 @@ func assembleBuildArgs(user, injected []string) ([]string, error) {
 	return out, nil
 }
 
-// positionalError reports user[i] as positional. When it follows a bare flag
-// gopro does not know to take a value, it is probably that flag's value, so
-// the error suggests the -name=value form.
+// After a flag gopro does not know to take a value, the positional is likely
+// that flag's value.
 func positionalError(user []string, i int) error {
 	err := fmt.Errorf("build args take flags only, but %q is positional: gopro supplies the package to build", user[i])
 	if i > 0 {
@@ -131,8 +121,6 @@ func positionalError(user []string, i int) error {
 	return err
 }
 
-// parseFlag splits "-name", "--name" and "-name=value". isFlag is false for
-// anything else, "--" included.
 func parseFlag(arg string) (name, value string, hasValue, isFlag bool) {
 	if len(arg) < 2 || arg[0] != '-' || arg == "--" {
 		return "", "", false, false
@@ -141,9 +129,8 @@ func parseFlag(arg string) (name, value string, hasValue, isFlag bool) {
 	return name, value, hasValue, name != ""
 }
 
-// splitPattern splits a tool flag value into pattern and args as go build
-// does: a value not starting with "-" is "pattern=args". The args must be
-// well quoted, or merging would run an open quote into the next value.
+// The args are checked for quoting here, or merging would run an open quote
+// into the next value.
 func splitPattern(v string) (pattern, args string, err error) {
 	v = strings.TrimSpace(v)
 	if v != "" && !strings.HasPrefix(v, "-") {
@@ -159,7 +146,6 @@ func splitPattern(v string) (pattern, args string, err error) {
 	return pattern, v, nil
 }
 
-// checkReservedLinkerFlags rejects a -X on infoPackage.
 func checkReservedLinkerFlags(args string) error {
 	fields, err := splitQuoted(args)
 	if err != nil {
@@ -180,9 +166,7 @@ func checkReservedLinkerFlags(args string) error {
 	return nil
 }
 
-// splitQuoted splits tool flags as the go command does (cmd/internal/quoted):
-// on whitespace, where a field opening with ' or " runs to the matching
-// quote. There are no escapes.
+// Mirrors cmd/internal/quoted, which has no escapes.
 func splitQuoted(s string) ([]string, error) {
 	var fields []string
 	for {
@@ -208,8 +192,7 @@ func splitQuoted(s string) ([]string, error) {
 	}
 }
 
-// joinQuoted inverts splitQuoted, wrapping a field that holds whitespace or a
-// quote in the quote it lacks. A field holding both quotes is an error.
+// Inverse of splitQuoted.
 func joinQuoted(fields []string) (string, error) {
 	parts := make([]string, len(fields))
 	for i, f := range fields {
