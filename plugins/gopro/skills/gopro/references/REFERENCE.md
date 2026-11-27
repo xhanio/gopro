@@ -171,7 +171,7 @@ Image references resolve as `[prefix/]repo:tag`, where `prefix` falls back to
 | `-p, --push` | Push after building; skipped for images with `no_push: true` |
 | `-l, --latest` | Additionally tag and push `:latest`. Requires `--push` — alone it warns and does nothing |
 | `--cache` | Use the docker layer cache; without it builds pass `--no-cache` |
-| `--dry-run` | Print each `docker` command, one per line, instead of running it; also on `build binary` and every `generate` subcommand |
+| `--dry-run` | Global: print each `docker` command, one per line, instead of running it; does the same for `build binary` and every `generate` subcommand |
 
 `--latest` resolves the second reference through the same prefix/repo logic, and
 skips the extra push when the image already builds as `:latest`. This replaces

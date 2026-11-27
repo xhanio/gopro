@@ -135,8 +135,8 @@ func TestApplyProjectInfoExistingFields(t *testing.T) {
 
 func runRoot(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	oldPath, oldEnv, oldVerbose := projectPath, envName, verbose
-	t.Cleanup(func() { projectPath, envName, verbose = oldPath, oldEnv, oldVerbose })
+	oldPath, oldEnv, oldVerbose, oldDryRun := projectPath, envName, verbose, dryRun
+	t.Cleanup(func() { projectPath, envName, verbose, dryRun = oldPath, oldEnv, oldVerbose, oldDryRun })
 	root := NewRootCmd()
 	var out bytes.Buffer
 	root.SetOut(&out)

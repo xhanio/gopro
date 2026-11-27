@@ -227,6 +227,7 @@ All commands support these global flags:
 - `-e, --environment <name>`: Target environment (`local`, `prod`, or custom). When omitted (or `default`), the `default` section is used as-is; a named environment is merged on top of `default`, and a name not declared under `env` is an error
 - `-f, --filter <regex>`: Filter components by name with a Go (RE2) regex (default: `.*`)
 - `-v, --verbose`: Enable verbose output for debugging
+- `--dry-run`: Print what `build` and `generate` would change, one operation per line, instead of changing it (see [Dry Run](#dry-run)); `init` and `example` refuse it
 - `-h, --help`: Show help for any command
 
 ### Project Commands
@@ -260,7 +261,6 @@ Additional flags:
 - `--build-version <value>`: Override build version metadata
 - `--build-type <value>`: Override build type metadata
 - `--build-date <value>`: Override build date metadata
-- `--dry-run`: Print each `go build` it would run, one per line, instead of running it — available on all `build` subcommands
 
 **Features:**
 
@@ -302,7 +302,6 @@ Additional flags:
 - `-p, --push`: Push images to registry after building
 - `-l, --latest`: Additionally tag and push the image as `:latest` (requires `--push`; warns and does nothing without it)
 - `--cache`: Use the docker layer cache; without it images build with `--no-cache`
-- `--dry-run`: Print each `docker` command it would run, pushes included, instead of running it
 
 **Features:**
 
@@ -348,7 +347,6 @@ gopro generate config -f "api.*"       # Generate specific configs
 Additional flags:
 - `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`, then to `config_src` for an in-place render)
 - `-x, --prefix <prefix>`: Template file prefix (default: `template.`) — available on all `generate` subcommands
-- `--dry-run`: Print the directory it would clear and each file it would render or copy, instead of changing anything — available on all `generate` subcommands
 
 Each config's target directory is removed before rendering, so generated output
 is a clean reflection of the sources — except for an in-place render, where the
@@ -432,8 +430,8 @@ therefore stays there until you delete it.
 
 ### Dry Run
 
-`--dry-run`, on every `build` and `generate` subcommand, prints what the
-command would change, one operation per line, and changes nothing:
+`--dry-run`, a global flag, makes every `build` and `generate` subcommand
+print what it would change, one operation per line, and change nothing:
 
 ```
 $ gopro build binary -e prod --dry-run
@@ -447,7 +445,8 @@ A command line carries the environment gopro adds, and runs the same when
 pasted into a shell. Everything that changes nothing still runs, so a dry run
 fails where the real one would: the config is loaded and checked, Git is
 queried, and templates are rendered, only not written. Warnings go to stderr,
-so stdout holds the operations alone. `init` and `example` have no dry run.
+so stdout holds the operations alone. `init` and `example` have no dry run and
+refuse the flag; `version` and `schema` change nothing anyway.
 
 ## Examples
 

@@ -19,7 +19,6 @@ func NewGenerateCmd() *cobra.Command {
 		Use: "generate",
 	}
 	cmd.PersistentFlags().StringVarP(&prefix, "prefix", "x", "template.", "generate files with given prefix")
-	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, dryRunUsage)
 
 	cmd.AddCommand(NewGenerateConfigCmd())
 	cmd.AddCommand(NewGenerateKubernetesCmd())
@@ -49,34 +48,27 @@ func runGenerateConfig(cmd *cobra.Command, args []string) error {
 			if name != config.Name {
 				continue
 			}
-			// generate config. With no target configured the output lands
-			// beside the templates, rendering the component in place. Resolved
-			// per component into a local so the fallback cannot leak from one
-			// to the next.
+			// No target renders in place. Resolved per component, so the fallback
+			// cannot leak into the next one.
 			dst := out
 			if dst == "" {
 				dst = env.ConfigSrc
 			}
 			configDst := filepath.Join(dst, config.Name)
-			// The directories the render reads from, not the roots they came
-			// from: an unset config_src still resolves to a real directory
-			// here, and that is exactly the case the guard must catch.
+			// The directories actually read, so the overlap guard also catches an unset
+			// config_src.
 			defaultConfigSrc := filepath.Join(project.Default.ConfigSrc, config.Name)
 			envConfigSrc := filepath.Join(env.ConfigSrc, config.Name)
 			if err := clearTarget(configDst, defaultConfigSrc, envConfigSrc); err != nil {
 				return err
 			}
 			patterns := config.Files
-			// render default config
 			if fi, err := os.Stat(defaultConfigSrc); err == nil && fi.IsDir() {
 				titlef("Generate config %s from %s", config.Name, defaultConfigSrc)
 				if err := render(config.Name, defaultConfigSrc, configDst, prefix, patterns); err != nil {
 					return err
 				}
 			}
-			// render env config, unless it is the default layer
-			// itself: with no -e, or an env not setting config_src, the two are
-			// one directory, rendered once
 			if fi, err := os.Stat(envConfigSrc); err == nil && fi.IsDir() && envConfigSrc != defaultConfigSrc {
 				titlef("Generate config %s from %s", config.Name, envConfigSrc)
 				if err := render(config.Name, envConfigSrc, configDst, prefix, patterns); err != nil {
@@ -110,8 +102,6 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 			if name != template.Name {
 				continue
 			}
-			// generate kubernetes template. As with configs, an unset target
-			// renders the component in place beside its templates.
 			dst := out
 			if dst == "" {
 				dst = env.KubernetesSrc
@@ -123,16 +113,12 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			patterns := template.Files
-			// render default kubernetes template
 			if fi, err := os.Stat(defaultKubernetesSrc); err == nil && fi.IsDir() {
 				titlef("Generate kubernetes template %s from %s", template.Name, defaultKubernetesSrc)
 				if err := render(template.Name, defaultKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
 					return err
 				}
 			}
-			// render env kubernetes template, unless it is the default layer
-			// itself: with no -e, or an env not setting kubernetes_src, the two are
-			// one directory, rendered once
 			if fi, err := os.Stat(envKubernetesSrc); err == nil && fi.IsDir() && envKubernetesSrc != defaultKubernetesSrc {
 				titlef("Generate kubernetes template %s from %s", template.Name, envKubernetesSrc)
 				if err := render(template.Name, envKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
@@ -153,21 +139,17 @@ func NewGenerateDockerComposeCmd() *cobra.Command {
 }
 
 func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
-	// determine output directory
 	outputDir := env.DockerComposeTgt
 	if outputDir == "" {
 		outputDir = "."
 	}
 
-	// create output directory if needed
 	if err := mkdirAll(outputDir); err != nil {
 		return err
 	}
 
-	// get file patterns from configuration
 	patterns := project.Generate.DockerCompose.Files
 
-	// render default docker-compose template
 	defaultSrc := project.Default.DockerComposeSrc
 	if defaultSrc != "" {
 		if fi, err := os.Stat(defaultSrc); err == nil && fi.IsDir() {
@@ -178,7 +160,6 @@ func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// render env-specific docker-compose template
 	envSrc := env.DockerComposeSrc
 	if envSrc != "" && envSrc != defaultSrc {
 		if fi, err := os.Stat(envSrc); err == nil && fi.IsDir() {

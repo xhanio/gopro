@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/xhanio/gopro/pkg/types"
 )
 
 // fakeTools puts go and docker stand-ins first on PATH, each recording its
@@ -195,16 +197,37 @@ func TestDryRunStillRendersTemplates(t *testing.T) {
 	}
 }
 
-// Commands outside build and generate have no --dry-run, so asking for one
-// cannot quietly run them for real.
-func TestDryRunIsOnlyOnBuildAndGenerate(t *testing.T) {
-	for _, args := range [][]string{{"init", "--dry-run"}, {"example", "--dry-run"}} {
+// --dry-run is global, so init and example, which have no dry run, refuse it
+// before changing anything rather than quietly running for real.
+func TestDryRunRefusedByInitAndExample(t *testing.T) {
+	for _, args := range [][]string{{"init", "--dry-run"}, {"--dry-run", "example"}} {
 		t.Chdir(t.TempDir())
-		writeTree(t, ".", "project.yaml", "product: demo\nmodule: x.test/demo\n")
-		_, err := runRoot(t, args...)
-		if err == nil || !strings.Contains(err.Error(), "unknown flag: --dry-run") {
-			t.Errorf("gopro %s: error = %v, want an unknown flag", strings.Join(args, " "), err)
+		if args[0] == "init" {
+			writeTree(t, ".", "project.yaml", "product: demo\nmodule: x.test/demo\ndefault:\n  binary_tgt: bin\n")
 		}
+		var err error
+		captureStdout(t, func() { _, err = runRoot(t, args...) })
+		if err == nil || !strings.Contains(err.Error(), "--dry-run") {
+			t.Errorf("gopro %s: error = %v, want a refusal of --dry-run", strings.Join(args, " "), err)
+		}
+		entries, _ := os.ReadDir(".")
+		for _, e := range entries {
+			if e.Name() != "project.yaml" || args[0] != "init" {
+				t.Errorf("gopro %s created %s", strings.Join(args, " "), e.Name())
+			}
+		}
+	}
+}
+
+// Commands with no side effects take --dry-run and run as usual.
+func TestDryRunAcceptedBySchema(t *testing.T) {
+	old := types.ProjectSchemaJSON
+	t.Cleanup(func() { types.ProjectSchemaJSON = old })
+	types.ProjectSchemaJSON = []byte("{}\n")
+	t.Chdir(t.TempDir())
+	out, err := runRoot(t, "schema", "--dry-run")
+	if err != nil || out == "" {
+		t.Fatalf("gopro schema --dry-run = %q, %v", out, err)
 	}
 }
 

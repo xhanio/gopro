@@ -33,13 +33,13 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 - `-e, --environment <name>` - Target environment (local, prod, or custom). Omitted (or `default`) = use `default` as-is; an undeclared name is an error
 - `-f, --filter <regex>` - Regex filter for selective component building (default: `.*`)
 - `-v, --verbose` - Debug output
+- `--dry-run` - `build` and `generate` print each command and file operation, one per line, and perform none; `init` and `example` refuse it
 
 ### Per-Command Flags
 
 - `gopro build binary`: `-o/--output`, `--product-model`, `--product-version`, `--build-version`, `--build-type`, `--build-date`
 - `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`), `--cache` (use the docker layer cache; default builds with `--no-cache`)
 - `gopro generate`: `-x/--prefix` (template prefix, default `template.`) on all three subcommands
-- `--dry-run` on every `build` and `generate` subcommand: prints each command and file operation, one per line, and performs none
 - `gopro generate config`: `-o/--output` — `gopro generate kubernetes`: `-t/--output`
 - `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`, which is never cleared first
 

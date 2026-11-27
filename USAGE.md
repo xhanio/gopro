@@ -100,6 +100,7 @@ These flags are available for all commands:
 | `--environment` | `-e` | (unset) | Target environment (local, prod, or custom). When unset (or `default`), the `default` section is used as-is; an undeclared name is an error |
 | `--filter` | `-f` | `.*` | Regex filter for selecting components |
 | `--verbose` | `-v` | `false` | Enable verbose output for debugging |
+| `--dry-run` | | `false` | Print each command and file operation of `build` and `generate`, one per line, instead of performing it; `init` and `example` refuse it (see [Dry Run](#dry-run)) |
 | `--help` | `-h` | `false` | Show help information |
 
 The `example`, `schema` and `version` commands do not load `project.yaml`, so they work in
@@ -269,7 +270,6 @@ gopro build binary [flags]
 | `--build-version` | | Override build version (defaults to Git tag) |
 | `--build-type` | | Override build type metadata |
 | `--build-date` | | Override build date metadata |
-| `--dry-run` | | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -419,7 +419,6 @@ gopro build image [flags]
 | `--push` | `-p` | Push images to registry after building |
 | `--latest` | `-l` | Also tag and push the image as `:latest` (requires `--push`) |
 | `--cache` | | Use the docker layer cache (default: build with `--no-cache`) |
-| `--dry-run` | | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -584,7 +583,6 @@ gopro generate config [flags]
 |------|-------|---------|-------------|
 | `--output` | `-o` | (from config) | Override output directory |
 | `--prefix` | `-x` | `template.` | Template file prefix |
-| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -680,7 +678,6 @@ gopro generate kubernetes [flags]
 |------|-------|---------|-------------|
 | `--output` | `-t` | (from config) | Override output directory |
 | `--prefix` | `-x` | `template.` | Template file prefix |
-| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -776,7 +773,6 @@ gopro generate docker-compose [flags]
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--prefix` | `-x` | `template.` | Template file prefix |
-| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -1287,8 +1283,8 @@ components to keep instead.
 
 ### Dry Run
 
-Every `build` and `generate` subcommand takes `--dry-run`, which prints each
-operation that would change something, one per line, and performs none:
+The global `--dry-run` makes every `build` and `generate` subcommand print each
+operation that would change something, one per line, and perform none:
 
 | Operation | Printed as |
 |---|---|
@@ -1313,7 +1309,8 @@ read generated output from an earlier real run, since a dry run writes none.
 
 stdout holds only the operations, so it can be saved or piped; progress
 messages are left out, and warnings, such as a `secret.env` left in a Docker
-build context, go to stderr. `init` and `example` have no `--dry-run`.
+build context, go to stderr. `init` and `example` have no dry run and refuse
+the flag, before changing anything; `version` and `schema` change nothing anyway.
 
 ### Custom Output Directories
 

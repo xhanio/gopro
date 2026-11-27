@@ -13,8 +13,8 @@ func NewExampleCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "example",
 		Short: "Save an example project.yaml to the current directory",
-		// Replaces the root's pre-run so no project.yaml is loaded, and so
-		// has to silence usage on runtime errors itself.
+		// Replaces the root's pre-run, which would load project.yaml, so it must
+		// silence usage itself.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			return nil
@@ -25,6 +25,9 @@ func NewExampleCmd() *cobra.Command {
 }
 
 func runExample(cmd *cobra.Command, args []string) error {
+	if dryRun {
+		return fmt.Errorf("example has no dry run; run it without --dry-run")
+	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return err

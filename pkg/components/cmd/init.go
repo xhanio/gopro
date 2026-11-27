@@ -22,14 +22,15 @@ func NewInitCmd() *cobra.Command {
 }
 
 func runInitProject(cmd *cobra.Command, args []string) error {
-	// validate that product name is specified
+	if dryRun {
+		return errors.Newf("init has no dry run; run it without --dry-run")
+	}
 	if project.Product == "" {
 		return errors.Newf("product name is required in project.yaml configuration")
 	}
 
 	titlef("initializing project directories")
 
-	// initialize git repository if not already initialized
 	_, err := execute("git", []string{"rev-parse", "--git-dir"}, nil, false)
 	if err != nil {
 		linef("initializing git repository")
@@ -39,7 +40,6 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// initialize go module if go.mod doesn't exist
 	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		linef("initializing go module")
 		args := []string{"mod", "init"}
@@ -48,8 +48,8 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 		}
 		_, err = execute("go", args, nil, false)
 		if err != nil && project.Module == "" {
-			// Outside GOPATH go cannot infer a module path, and its message
-			// is not shown.
+			// execute discards go's message; outside GOPATH an unset module is the usual
+			// cause.
 			return errors.Newf("go mod init: %s; set module in project.yaml, go could not infer a module path here", err)
 		}
 		if err != nil {
@@ -57,33 +57,27 @@ func runInitProject(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// create directories from default configuration
 	if err := createEnvDirectories("default", project.Default); err != nil {
 		return err
 	}
 	if envName != "" {
-		// create directories from given environment configurations
 		if err := createEnvDirectories(envName, env); err != nil {
 			return err
 		}
 	} else {
-		// create directories from all environment configurations
 		for envKey, cfg := range project.Env {
 			if err := createEnvDirectories(envKey, cfg); err != nil {
 				return err
 			}
 		}
 	}
-	// create or update .gitignore file
 	if err := createOrUpdateGitignore(); err != nil {
 		return err
 	}
 	return createOrUpdateDockerignore()
 }
 
-// createEnvDirectories creates all source and target directories for a given environment
 func createEnvDirectories(env string, config types.EnvSpec) error {
-	// create all directory paths from the environment config
 	resources := map[types.ResourceType][]string{
 		types.ResourceTypeBinaries:      {config.BinarySrc, config.BinaryTgt},
 		types.ResourceTypeConfigs:       {config.ConfigSrc, config.ConfigTgt},
@@ -98,7 +92,7 @@ func createEnvDirectories(env string, config types.EnvSpec) error {
 			switch res {
 			case types.ResourceTypeBinaries:
 				if i == 1 {
-					// !! no need to create resource dirs under config.BinaryTgt
+					// the target holds the binaries, not a directory per binary
 					continue
 				}
 				for _, target := range config.Binaries {
@@ -117,7 +111,7 @@ func createEnvDirectories(env string, config types.EnvSpec) error {
 					targets = append(targets, filepath.Join(dir, target))
 				}
 			case types.ResourceTypeDockerCompose:
-				// docker-compose only needs the base directories (src/tgt), no subdirectories
+				// docker-compose has no components
 				continue
 			}
 		}
@@ -132,17 +126,14 @@ func createEnvDirectories(env string, config types.EnvSpec) error {
 	return nil
 }
 
-// createDirectoryIfNotExists creates a directory if it doesn't already exist
 func createDirectoryIfNotExists(env, dirPath string) error {
 	if dirPath == "" {
 		return nil
 	}
-	// convert to absolute path
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
 		return err
 	}
-	// check if directory already exists
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(absPath, 0755); err != nil {
 			return err
@@ -152,11 +143,9 @@ func createDirectoryIfNotExists(env, dirPath string) error {
 	return nil
 }
 
-// createOrUpdateGitignore creates .gitignore file if it doesn't exist, or updates it with missing entries
 func createOrUpdateGitignore() error {
 	gitignorePath := ".gitignore"
-	// Ordered rather than a map so repeated runs append the same way and the
-	// resulting diff is reviewable.
+	// A slice, not a map, so entries append in a stable order.
 	requiredEntries := []struct {
 		path  string
 		isDir bool
@@ -167,9 +156,7 @@ func createOrUpdateGitignore() error {
 		{secretEnvFile, false},
 	}
 	linef("managing .gitignore file")
-	// check if .gitignore exists, create if it doesn't
 	if _, err := os.Stat(gitignorePath); err != nil {
-		// file doesn't exist, create an empty one
 		file, err := os.Create(gitignorePath)
 		if err != nil {
 			return err
@@ -177,21 +164,16 @@ func createOrUpdateGitignore() error {
 		file.Close()
 		debugf(".gitignore file created")
 	}
-	// now parse the .gitignore file (whether it was just created or already existed)
 	ignore, err := gitignore.NewGitIgnore(gitignorePath)
 	if err != nil {
 		return err
 	}
-	// find missing entries by checking if they would be ignored
 	var missingEntries []string
 	for _, required := range requiredEntries {
-		// use the Ignore() method to check if this entry would be matched
-		// if it's not ignored by existing patterns, we need to add it
 		if !ignore.Match(required.path, required.isDir) {
 			missingEntries = append(missingEntries, required.path)
 		}
 	}
-	// add missing entries if any
 	if len(missingEntries) == 0 {
 		debugf("all required entries are already covered by .gitignore")
 		return nil
@@ -205,9 +187,7 @@ func createOrUpdateGitignore() error {
 		return err
 	}
 	defer file.Close()
-	// A .gitignore that doesn't end in a newline would otherwise have its last
-	// rule fused with the first entry appended below, destroying that rule and
-	// losing the entry with it.
+	// Without a final newline, the first entry would fuse onto the last rule.
 	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
 		if _, err := file.WriteString("\n"); err != nil {
 			return err

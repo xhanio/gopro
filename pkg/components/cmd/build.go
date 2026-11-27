@@ -28,7 +28,6 @@ func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "build",
 	}
-	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, dryRunUsage)
 	cmd.AddCommand(NewBuildBinaryCmd())
 	cmd.AddCommand(NewBuildImageCmd())
 	return cmd
@@ -66,10 +65,6 @@ func overwriteBuildInfo() {
 	}
 }
 
-// applyApplicationInfo stamps the application identity onto the framingo info
-// vars before injection. Each build.binaries entry is one application: it is
-// named by the binary and versioned by the binary's version field, inheriting
-// the product version when it does not declare one.
 func applyApplicationInfo(binary types.BinarySpec) {
 	info.ApplicationName = binary.Name
 	info.ApplicationVersion = binary.Version
@@ -96,7 +91,7 @@ func runBuildBinary(cmd *cobra.Command, args []string) error {
 				binarySrc = filepath.Join(env.BinarySrc, binary.Name)
 			}
 			applyApplicationInfo(binary)
-			// build default platform
+			// host build
 			titlef("Build Binary %s from %s", name, binarySrc)
 			if err := executeBuildBinary(binary, types.PlatformSpec{}, binarySrc, binaryOutput); err != nil {
 				return err
@@ -139,7 +134,6 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 			}
 			buildTarget := image.GetImageName(env)
 			if image.BuildFrom != "" {
-				// build from thrid party image
 				buildSource := image.BuildFrom
 				titlef("Build Image %s from %s as %s", name, buildSource, buildTarget)
 				err := executePullImage(buildSource)
@@ -151,7 +145,6 @@ func runBuildImage(cmd *cobra.Command, args []string) error {
 					return err
 				}
 			} else {
-				// build from dockerfile
 				buildSource := image.BuildSrc
 				if buildSource == "" {
 					buildSource = filepath.Join(env.ImageBuildSrc, image.Name)
