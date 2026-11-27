@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/xhanio/gopro/pkg/types"
@@ -189,5 +191,71 @@ generate:
 	}
 	if _, statErr := os.Stat("out/keep/important.txt"); statErr != nil {
 		t.Fatalf("a file beside the config target was deleted: %v", statErr)
+	}
+}
+
+// A template that fails to render leaves the previous output as it was:
+// every layer renders before the target is cleared or anything is written.
+func TestGenerateKeepsTheOutputWhenATemplateFails(t *testing.T) {
+	for _, tgt := range []string{"out", ""} { // a target of its own, and in place
+		t.Run("target "+tgt, func(t *testing.T) {
+			src := seedConfigSource(t)                                              // template.conf.yaml
+			writeTree(t, src, "template.zz-broken.yaml", "x: [[ .NoSuchField ]]\n") // after conf.yaml
+			old := filepath.Join(src, "conf.yaml")
+			if tgt != "" {
+				old = filepath.Join(tgt, "api", "conf.yaml")
+			}
+			writeTree(t, ".", old, "from: an earlier run\n")
+			p, e := configProject("env/default/config", tgt)
+			withProject(t, p, e)
+
+			if err := runGenerateConfig(nil, nil); err == nil {
+				t.Fatal("a broken template rendered")
+			}
+			if got, err := os.ReadFile(old); err != nil || string(got) != "from: an earlier run\n" {
+				t.Fatalf("earlier output = %q, %v; want it untouched", got, err)
+			}
+		})
+	}
+}
+
+// The environment layer overlays the default one: a file both render is
+// written once, with the environment's content.
+func TestGenerateOverlaysTheEnvLayer(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeTree(t, ".", "env/default/config/api/template.x.yaml", "from: default\n")
+	writeTree(t, ".", "env/default/config/api/template.y.yaml", "from: default\n")
+	writeTree(t, ".", "env/prod/config/api/template.x.yaml", "from: prod\n")
+	p, _ := configProject("env/default/config", "out")
+	e := p.Default
+	e.ConfigSrc = "env/prod/config"
+	withProject(t, p, e)
+	oldDryRun := dryRun
+	t.Cleanup(func() { dryRun = oldDryRun })
+
+	dryRun = true
+	var err error
+	lines := strings.Split(strings.TrimSpace(captureStdout(t, func() { err = runGenerateConfig(nil, nil) })), "\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"rm -rf out/api",
+		"render env/prod/config/api/template.x.yaml out/api/x.yaml",
+		"render env/default/config/api/template.y.yaml out/api/y.yaml",
+	}
+	if !slices.Equal(lines, want) {
+		t.Fatalf("dry run printed %q, want %q", lines, want)
+	}
+
+	dryRun = false
+	captureStdout(t, func() { err = runGenerateConfig(nil, nil) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for file, want := range map[string]string{"out/api/x.yaml": "from: prod\n", "out/api/y.yaml": "from: default\n"} {
+		if got, err := os.ReadFile(file); err != nil || string(got) != want {
+			t.Errorf("%s = %q, %v; want %q", file, got, err, want)
+		}
 	}
 }

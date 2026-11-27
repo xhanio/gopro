@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/spf13/cobra"
 )
@@ -36,42 +37,13 @@ func NewGenerateConfigCmd() *cobra.Command {
 }
 
 func runGenerateConfig(cmd *cobra.Command, args []string) error {
-	out := configOutput
-	if out == "" {
-		out = env.ConfigTgt
-	}
 	for _, name := range env.Configs {
 		if !filterRegex.MatchString(name) {
 			continue
 		}
 		for _, config := range project.Generate.Configs {
-			if name != config.Name {
-				continue
-			}
-			// No target renders in place. Resolved per component, so the fallback
-			// cannot leak into the next one.
-			dst := out
-			if dst == "" {
-				dst = env.ConfigSrc
-			}
-			configDst := filepath.Join(dst, config.Name)
-			// The directories actually read, so the overlap guard also catches an unset
-			// config_src.
-			defaultConfigSrc := filepath.Join(project.Default.ConfigSrc, config.Name)
-			envConfigSrc := filepath.Join(env.ConfigSrc, config.Name)
-			if err := clearTarget(configDst, defaultConfigSrc, envConfigSrc); err != nil {
-				return err
-			}
-			patterns := config.Files
-			if fi, err := os.Stat(defaultConfigSrc); err == nil && fi.IsDir() {
-				titlef("Generate config %s from %s", config.Name, defaultConfigSrc)
-				if err := render(config.Name, defaultConfigSrc, configDst, prefix, patterns); err != nil {
-					return err
-				}
-			}
-			if fi, err := os.Stat(envConfigSrc); err == nil && fi.IsDir() && envConfigSrc != defaultConfigSrc {
-				titlef("Generate config %s from %s", config.Name, envConfigSrc)
-				if err := render(config.Name, envConfigSrc, configDst, prefix, patterns); err != nil {
+			if name == config.Name {
+				if err := generate(configTarget(name), config.Files); err != nil {
 					return err
 				}
 			}
@@ -90,38 +62,13 @@ func NewGenerateKubernetesCmd() *cobra.Command {
 }
 
 func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
-	out := kubernetesOutput
-	if out == "" {
-		out = env.KubernetesTgt
-	}
 	for _, name := range env.KubernetesTemplates {
 		if !filterRegex.MatchString(name) {
 			continue
 		}
 		for _, template := range project.Generate.Kubernetes {
-			if name != template.Name {
-				continue
-			}
-			dst := out
-			if dst == "" {
-				dst = env.KubernetesSrc
-			}
-			kubernetesDst := filepath.Join(dst, template.Name)
-			defaultKubernetesSrc := filepath.Join(project.Default.KubernetesSrc, template.Name)
-			envKubernetesSrc := filepath.Join(env.KubernetesSrc, template.Name)
-			if err := clearTarget(kubernetesDst, defaultKubernetesSrc, envKubernetesSrc); err != nil {
-				return err
-			}
-			patterns := template.Files
-			if fi, err := os.Stat(defaultKubernetesSrc); err == nil && fi.IsDir() {
-				titlef("Generate kubernetes template %s from %s", template.Name, defaultKubernetesSrc)
-				if err := render(template.Name, defaultKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
-					return err
-				}
-			}
-			if fi, err := os.Stat(envKubernetesSrc); err == nil && fi.IsDir() && envKubernetesSrc != defaultKubernetesSrc {
-				titlef("Generate kubernetes template %s from %s", template.Name, envKubernetesSrc)
-				if err := render(template.Name, envKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
+			if name == template.Name {
+				if err := generate(kubernetesTarget(name), template.Files); err != nil {
 					return err
 				}
 			}
@@ -139,36 +86,100 @@ func NewGenerateDockerComposeCmd() *cobra.Command {
 }
 
 func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
-	outputDir := env.DockerComposeTgt
-	if outputDir == "" {
-		outputDir = "."
+	return generate(dockerComposeTarget(), project.Generate.DockerCompose.Files)
+}
+
+// target is where a component renders from, default layer first, and to.
+type target struct {
+	label, name string
+	srcs        []string
+	dst         string
+	shared      bool // dst holds other output too, so it is not cleared
+}
+
+// An unset target renders in place. srcs are the directories actually read,
+// so the in-place check also catches an unset config_src.
+func configTarget(name string) target {
+	return componentTarget("config", name, configOutput, env.ConfigTgt, project.Default.ConfigSrc, env.ConfigSrc)
+}
+
+func kubernetesTarget(name string) target {
+	return componentTarget("kubernetes template", name, kubernetesOutput, env.KubernetesTgt, project.Default.KubernetesSrc, env.KubernetesSrc)
+}
+
+func componentTarget(kind, name, flag, tgt, defaultSrc, envSrc string) target {
+	out := flag
+	if out == "" {
+		out = tgt
 	}
-
-	if err := mkdirAll(outputDir); err != nil {
-		return err
+	if out == "" {
+		out = envSrc
 	}
+	return target{
+		label: kind + " " + name,
+		name:  name,
+		srcs:  []string{filepath.Join(defaultSrc, name), filepath.Join(envSrc, name)},
+		dst:   filepath.Join(out, name),
+	}
+}
 
-	patterns := project.Generate.DockerCompose.Files
+func dockerComposeTarget() target {
+	dst := env.DockerComposeTgt
+	if dst == "" {
+		dst = "."
+	}
+	return target{
+		label:  "docker-compose",
+		name:   "docker-compose",
+		srcs:   []string{project.Default.DockerComposeSrc, env.DockerComposeSrc},
+		dst:    dst,
+		shared: true,
+	}
+}
 
-	defaultSrc := project.Default.DockerComposeSrc
-	if defaultSrc != "" {
-		if fi, err := os.Stat(defaultSrc); err == nil && fi.IsDir() {
-			titlef("Generate docker-compose from %s", defaultSrc)
-			if err := render("docker-compose", defaultSrc, outputDir, prefix, patterns); err != nil {
-				return err
+// generate renders every layer before touching dst, so a template that fails
+// leaves the previous output as it was.
+func generate(t target, patterns []string) error {
+	clear := !t.shared
+	for _, src := range t.srcs {
+		inPlace, err := overlaps(t.dst, src)
+		if err != nil {
+			return err
+		}
+		if inPlace {
+			// clearing would delete the templates, so stale output survives
+			clear = false
+			if verbose {
+				debugf("rendering in place into %s; leaving existing files alone", t.dst)
 			}
+			break
 		}
 	}
-
-	envSrc := env.DockerComposeSrc
-	if envSrc != "" && envSrc != defaultSrc {
-		if fi, err := os.Stat(envSrc); err == nil && fi.IsDir() {
-			titlef("Generate docker-compose from %s", envSrc)
-			if err := render("docker-compose", envSrc, outputDir, prefix, patterns); err != nil {
-				return err
-			}
+	var outs []output
+	var read []string
+	for _, src := range t.srcs {
+		if src == "" || slices.Contains(read, src) {
+			continue
+		}
+		read = append(read, src)
+		if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
+			continue
+		}
+		titlef("Generate %s from %s", t.label, src)
+		var err error
+		if outs, err = renderLayer(outs, t.name, src, prefix, patterns); err != nil {
+			return err
 		}
 	}
-
-	return nil
+	switch {
+	case clear:
+		if err := removeAll(t.dst); err != nil {
+			return err
+		}
+	case t.shared:
+		if err := mkdirAll(t.dst); err != nil {
+			return err
+		}
+	}
+	return writeOutputs(t.dst, outs)
 }

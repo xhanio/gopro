@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -126,8 +127,17 @@ type renderContext struct {
 	Env     types.EnvSpec
 }
 
-func render(name, srcDir, dstDir, prefix string, patterns []string) error {
-	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+// output is a file generation writes, by its path relative to the target.
+type output struct {
+	src, rel string
+	data     []byte
+	rendered bool
+}
+
+// renderLayer adds the files srcDir renders to outs, replacing a file an
+// earlier layer gave the same path.
+func renderLayer(outs []output, name, srcDir, prefix string, patterns []string) ([]output, error) {
+	err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -180,6 +190,22 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 		} else {
 			linef("copy %s from %s", outRel, path)
 		}
-		return writeOutput(path, filepath.Join(dstDir, outRel), b, templated)
+		out := output{src: path, rel: outRel, data: b, rendered: templated}
+		if i := slices.IndexFunc(outs, func(o output) bool { return o.rel == outRel }); i >= 0 {
+			outs[i] = out
+		} else {
+			outs = append(outs, out)
+		}
+		return nil
 	})
+	return outs, err
+}
+
+func writeOutputs(dstDir string, outs []output) error {
+	for _, o := range outs {
+		if err := writeOutput(o.src, filepath.Join(dstDir, o.rel), o.data, o.rendered); err != nil {
+			return err
+		}
+	}
+	return nil
 }

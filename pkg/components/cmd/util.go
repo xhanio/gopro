@@ -34,37 +34,23 @@ func matches(path string, patterns ...string) (bool, error) {
 	return false, nil
 }
 
-// A target overlapping a template source is an in-place render: clearing it
-// would delete the templates, so stale output survives there.
-func clearTarget(dst string, srcs ...string) error {
-	absDst, err := filepath.Abs(dst)
+// overlaps reports whether removing either path would affect the other.
+func overlaps(a, b string) (bool, error) {
+	absA, err := filepath.Abs(a)
 	if err != nil {
-		return err
+		return false, err
 	}
-	for _, src := range srcs {
-		if src == "" {
-			continue
-		}
-		absSrc, err := filepath.Abs(src)
-		if err != nil {
-			return err
-		}
-		if pathsOverlap(absDst, absSrc) {
-			if verbose {
-				debugf("rendering in place into %s; leaving existing files alone", dst)
-			}
-			return nil
-		}
+	absB, err := filepath.Abs(b)
+	if err != nil {
+		return false, err
 	}
-	return removeAll(dst)
+	return within(absA, absB) || within(absB, absA), nil
 }
 
-func pathsOverlap(a, b string) bool {
-	if a == b {
-		return true
-	}
-	sep := string(filepath.Separator)
-	return strings.HasPrefix(a, b+sep) || strings.HasPrefix(b, a+sep)
+// within reports whether the absolute path is dir or lies under it.
+func within(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && filepath.IsLocal(rel)
 }
 
 // Sorted, since info.INJECTION is a map; assembleBuildArgs quotes the values.

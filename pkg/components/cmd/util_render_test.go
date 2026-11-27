@@ -28,7 +28,7 @@ func TestRenderKeepsTemplatesInTheirSubdirectories(t *testing.T) {
 	writeTree(t, src, "sub/deep/template.conf.yaml", "from: deep\n")
 	writeTree(t, src, "other/template.conf.yaml", "from: other\n")
 
-	if err := render("api", src, dst, "template.", nil); err != nil {
+	if err := renderTo("api", src, dst, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,7 +56,7 @@ func TestRenderKeepsPlainFilesInTheirSubdirectories(t *testing.T) {
 	src, dst := t.TempDir(), t.TempDir()
 	writeTree(t, src, "sub/plain.txt", "plain\n")
 
-	if err := render("api", src, dst, "template.", nil); err != nil {
+	if err := renderTo("api", src, dst, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,7 +78,7 @@ func TestRenderPatternMatchesNestedFiles(t *testing.T) {
 	writeTree(t, src, "sub/template.nested.yaml", "b: nested\n")
 	writeTree(t, src, "sub/skipped.txt", "not yaml\n")
 
-	if err := render("api", src, dst, "template.", []string{"*.yaml"}); err != nil {
+	if err := renderTo("api", src, dst, []string{"*.yaml"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +99,7 @@ func TestRenderDirectoryPatternStillScopesToThatDirectory(t *testing.T) {
 	writeTree(t, src, "cert/server.pem", "cert\n")
 	writeTree(t, src, "elsewhere/server.pem", "other\n")
 
-	if err := render("api", src, dst, "template.", []string{"cert/*"}); err != nil {
+	if err := renderTo("api", src, dst, []string{"cert/*"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,7 +121,7 @@ func TestRenderNeverCopiesSecretEnv(t *testing.T) {
 		writeTree(t, src, "template.secret.env", "K=v\n")
 		writeTree(t, src, "config.yaml", "a: 1\n")
 
-		if err := render("api", src, dst, "template.", patterns); err != nil {
+		if err := renderTo("api", src, dst, patterns); err != nil {
 			t.Fatal(err)
 		}
 
@@ -138,4 +138,13 @@ func TestRenderNeverCopiesSecretEnv(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// renderTo renders a single layer and writes it, as generate does.
+func renderTo(name, src, dst string, patterns []string) error {
+	outs, err := renderLayer(nil, name, src, "template.", patterns)
+	if err != nil {
+		return err
+	}
+	return writeOutputs(dst, outs)
 }
