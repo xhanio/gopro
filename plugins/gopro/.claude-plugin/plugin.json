@@ -1,7 +1,7 @@
 {
   "name": "gopro",
-  "description": "GoPro Go project generator and build tool — the gopro skill plus its reference docs, pinned to gopro v0.1.12: project.yaml structure, multi-environment builds, binary and Docker image builds, and config/Kubernetes/Compose template generation.",
-  "version": "1.3.0",
+  "description": "GoPro Go project generator and build tool — the gopro skill plus its reference docs, pinned to gopro v0.1.13: project.yaml structure, multi-environment builds, binary and Docker image builds, and config/Kubernetes/Compose template generation.",
+  "version": "1.4.0",
   "author": {
     "name": "Xi Han",
     "email": "hanx.azure22@gmail.com"
