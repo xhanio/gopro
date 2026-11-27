@@ -260,6 +260,7 @@ Additional flags:
 - `--build-version <value>`: Override build version metadata
 - `--build-type <value>`: Override build type metadata
 - `--build-date <value>`: Override build date metadata
+- `--dry-run`: Print each `go build` it would run, one per line, instead of running it — available on all `build` subcommands
 
 **Features:**
 
@@ -301,6 +302,7 @@ Additional flags:
 - `-p, --push`: Push images to registry after building
 - `-l, --latest`: Additionally tag and push the image as `:latest` (requires `--push`; warns and does nothing without it)
 - `--cache`: Use the docker layer cache; without it images build with `--no-cache`
+- `--dry-run`: Print each `docker` command it would run, pushes included, instead of running it
 
 **Features:**
 
@@ -346,6 +348,7 @@ gopro generate config -f "api.*"       # Generate specific configs
 Additional flags:
 - `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`, then to `config_src` for an in-place render)
 - `-x, --prefix <prefix>`: Template file prefix (default: `template.`) — available on all `generate` subcommands
+- `--dry-run`: Print the directory it would clear and each file it would render or copy, instead of changing anything — available on all `generate` subcommands
 
 Each config's target directory is removed before rendering, so generated output
 is a clean reflection of the sources — except for an in-place render, where the
@@ -426,6 +429,25 @@ therefore stays there until you delete it.
   `config.yaml` in the same directory. A distinct target is cleared before each
   render; an in-place one is not, since its inputs and outputs share a
   directory and clearing it would delete the templates
+
+### Dry Run
+
+`--dry-run`, on every `build` and `generate` subcommand, prints what the
+command would change, one operation per line, and changes nothing:
+
+```
+$ gopro build binary -e prod --dry-run
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X ...' -o bin/api_linux_amd64 /src/myapp/cmd/api
+$ gopro generate config -e prod --dry-run
+rm -rf dist/prod/config/api
+render env/prod/config/api/template.config.yaml dist/prod/config/api/config.yaml
+```
+
+A command line carries the environment gopro adds, and runs the same when
+pasted into a shell. Everything that changes nothing still runs, so a dry run
+fails where the real one would: the config is loaded and checked, Git is
+queried, and templates are rendered, only not written. Warnings go to stderr,
+so stdout holds the operations alone. `init` and `example` have no dry run.
 
 ## Examples
 

@@ -28,8 +28,7 @@ func executeBuildImage(name, src, image, base string, cache bool) error {
 	if verbose {
 		debugf("args: %s", strings.Join(args, " "))
 	}
-	_, err = execute("docker", args, env.ImageBuildEnv, true)
-	return err
+	return run("docker", args, env.ImageBuildEnv)
 }
 
 // injectedBuildArgs are the --build-arg names gopro sets on every image build.
@@ -97,8 +96,7 @@ func executePullImage(image string) error {
 	var args []string
 	args = append(args, "pull")
 	args = append(args, image)
-	_, err := execute("docker", args, nil, true)
-	return err
+	return run("docker", args, nil)
 }
 
 func executeTagImage(src, tgt string) error {
@@ -107,16 +105,14 @@ func executeTagImage(src, tgt string) error {
 	args = append(args, "tag")
 	args = append(args, src)
 	args = append(args, tgt)
-	_, err := execute("docker", args, env.ImageBuildEnv, true)
-	return err
+	return run("docker", args, env.ImageBuildEnv)
 }
 
 func executePushImage(image string) error {
 	var args []string
 	args = append(args, "push")
 	args = append(args, image)
-	_, err := execute("docker", args, nil, true)
-	return err
+	return run("docker", args, nil)
 }
 
 // execute runs cmd in the inherited environment plus env. -v prints env, so
@@ -188,6 +184,5 @@ func executeBuildBinary(binary types.BinarySpec, platform types.PlatformSpec, sr
 	args = append(args, buildArgs...)
 	args = append(args, "-o", filepath.Join(dst, name))
 	args = append(args, filepath.Join(info.ProjectRoot, src))
-	_, err = execute("go", args, envs, true)
-	return err
+	return run("go", args, envs)
 }

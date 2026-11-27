@@ -19,6 +19,7 @@ func NewGenerateCmd() *cobra.Command {
 		Use: "generate",
 	}
 	cmd.PersistentFlags().StringVarP(&prefix, "prefix", "x", "template.", "generate files with given prefix")
+	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, dryRunUsage)
 
 	cmd.AddCommand(NewGenerateConfigCmd())
 	cmd.AddCommand(NewGenerateKubernetesCmd())
@@ -73,8 +74,10 @@ func runGenerateConfig(cmd *cobra.Command, args []string) error {
 					return err
 				}
 			}
-			// render env config
-			if fi, err := os.Stat(envConfigSrc); err == nil && fi.IsDir() {
+			// render env config, unless it is the default layer
+			// itself: with no -e, or an env not setting config_src, the two are
+			// one directory, rendered once
+			if fi, err := os.Stat(envConfigSrc); err == nil && fi.IsDir() && envConfigSrc != defaultConfigSrc {
 				titlef("Generate config %s from %s", config.Name, envConfigSrc)
 				if err := render(config.Name, envConfigSrc, configDst, prefix, patterns); err != nil {
 					return err
@@ -127,8 +130,10 @@ func runGenerateKubernetes(cmd *cobra.Command, args []string) error {
 					return err
 				}
 			}
-			// render env kubernetes template
-			if fi, err := os.Stat(envKubernetesSrc); err == nil && fi.IsDir() {
+			// render env kubernetes template, unless it is the default layer
+			// itself: with no -e, or an env not setting kubernetes_src, the two are
+			// one directory, rendered once
+			if fi, err := os.Stat(envKubernetesSrc); err == nil && fi.IsDir() && envKubernetesSrc != defaultKubernetesSrc {
 				titlef("Generate kubernetes template %s from %s", template.Name, envKubernetesSrc)
 				if err := render(template.Name, envKubernetesSrc, kubernetesDst, prefix, patterns); err != nil {
 					return err
@@ -155,7 +160,7 @@ func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
 	}
 
 	// create output directory if needed
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := mkdirAll(outputDir); err != nil {
 		return err
 	}
 
@@ -175,7 +180,7 @@ func runGenerateDockerCompose(cmd *cobra.Command, args []string) error {
 
 	// render env-specific docker-compose template
 	envSrc := env.DockerComposeSrc
-	if envSrc != "" {
+	if envSrc != "" && envSrc != defaultSrc {
 		if fi, err := os.Stat(envSrc); err == nil && fi.IsDir() {
 			titlef("Generate docker-compose from %s", envSrc)
 			if err := render("docker-compose", envSrc, outputDir, prefix, patterns); err != nil {

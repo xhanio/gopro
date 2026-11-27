@@ -28,6 +28,7 @@ func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "build",
 	}
+	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, dryRunUsage)
 	cmd.AddCommand(NewBuildBinaryCmd())
 	cmd.AddCommand(NewBuildImageCmd())
 	return cmd

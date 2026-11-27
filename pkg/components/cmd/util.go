@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -67,7 +66,7 @@ func clearTarget(dst string, srcs ...string) error {
 			return nil
 		}
 	}
-	return os.RemoveAll(dst)
+	return removeAll(dst)
 }
 
 // pathsOverlap reports whether removing either absolute path would affect the

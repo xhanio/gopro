@@ -185,10 +185,6 @@ func render(name, srcDir, dstDir, prefix string, patterns []string) error {
 		} else {
 			linef("copy %s from %s", outRel, path)
 		}
-		dstFile := filepath.Join(dstDir, outRel)
-		if er := os.MkdirAll(filepath.Dir(dstFile), 0755); er != nil {
-			return er
-		}
-		return os.WriteFile(dstFile, b, 0644)
+		return writeOutput(path, filepath.Join(dstDir, outRel), b, templated)
 	})
 }

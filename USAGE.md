@@ -269,6 +269,7 @@ gopro build binary [flags]
 | `--build-version` | | Override build version (defaults to Git tag) |
 | `--build-type` | | Override build type metadata |
 | `--build-date` | | Override build date metadata |
+| `--dry-run` | | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -418,6 +419,7 @@ gopro build image [flags]
 | `--push` | `-p` | Push images to registry after building |
 | `--latest` | `-l` | Also tag and push the image as `:latest` (requires `--push`) |
 | `--cache` | | Use the docker layer cache (default: build with `--no-cache`) |
+| `--dry-run` | | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -582,6 +584,7 @@ gopro generate config [flags]
 |------|-------|---------|-------------|
 | `--output` | `-o` | (from config) | Override output directory |
 | `--prefix` | `-x` | `template.` | Template file prefix |
+| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -677,6 +680,7 @@ gopro generate kubernetes [flags]
 |------|-------|---------|-------------|
 | `--output` | `-t` | (from config) | Override output directory |
 | `--prefix` | `-x` | `template.` | Template file prefix |
+| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -772,6 +776,7 @@ gopro generate docker-compose [flags]
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--prefix` | `-x` | `template.` | Template file prefix |
+| `--dry-run` | | `false` | Print each command and file operation, one per line, instead of performing it (see [Dry Run](#dry-run)) |
 
 #### Examples
 
@@ -1279,6 +1284,36 @@ gopro build binary -f "^(api|worker)$"
 Filters use Go's RE2 regex syntax, which has no lookahead, so an "everything
 except" pattern such as `^(?!.*test).*$` is rejected as invalid. Match the
 components to keep instead.
+
+### Dry Run
+
+Every `build` and `generate` subcommand takes `--dry-run`, which prints each
+operation that would change something, one per line, and performs none:
+
+| Operation | Printed as |
+|---|---|
+| A command (`go build`, `docker build`, `pull`, `tag`, `push`) | A shell line with the environment gopro adds: `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ...` |
+| Clearing a target directory | `rm -rf <dir>` |
+| Creating the docker-compose target | `mkdir -p <dir>` |
+| Writing a rendered template | `render <template> <output>` |
+| Copying a file as is | `cp <source> <output>` |
+
+```bash
+gopro build image -e prod --push --latest --dry-run
+gopro generate config -e prod --dry-run
+```
+
+A printed command line runs the same when pasted into a shell, its arguments
+quoted where needed. Everything without a side effect still runs, so a dry run
+fails where the real run would: `project.yaml` is loaded and validated, Git is
+queried for the injected metadata, `-ldflags` and `docker build` arguments are
+assembled with their checks, and templates are rendered, only not written —
+a broken template fails a dry run too. `FromConfigFile` and `FromConfigJSON`
+read generated output from an earlier real run, since a dry run writes none.
+
+stdout holds only the operations, so it can be saved or piped; progress
+messages are left out, and warnings, such as a `secret.env` left in a Docker
+build context, go to stderr. `init` and `example` have no `--dry-run`.
 
 ### Custom Output Directories
 

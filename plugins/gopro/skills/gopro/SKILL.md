@@ -39,6 +39,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 - `gopro build binary`: `-o/--output`, `--product-model`, `--product-version`, `--build-version`, `--build-type`, `--build-date`
 - `gopro build image`: `-p/--push`, `-l/--latest` (also tag and push `:latest`; requires `--push`), `--cache` (use the docker layer cache; default builds with `--no-cache`)
 - `gopro generate`: `-x/--prefix` (template prefix, default `template.`) on all three subcommands
+- `--dry-run` on every `build` and `generate` subcommand: prints each command and file operation, one per line, and performs none
 - `gopro generate config`: `-o/--output` — `gopro generate kubernetes`: `-t/--output`
 - `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`, which is never cleared first
 
@@ -371,6 +372,20 @@ gopro build image -e prod --push --latest
 The extra tag is skipped when the image already builds as `:latest`, so nothing
 is pushed twice. `--latest` requires `--push`; alone it warns and does nothing.
 Images with `no_push: true` are skipped entirely.
+
+### Check Before Changing Anything
+
+Run the command with `--dry-run` first whenever it would push images, clear an
+output directory, or when you changed build settings and want to see their
+effect. It prints each operation on its own line — `go build` and `docker`
+commands with the environment gopro adds, then `rm -rf`, `mkdir -p`, `render`
+and `cp` for files — and performs none. It still loads and validates
+`project.yaml` and renders templates, so it fails where the real run would.
+
+```bash
+gopro build image -e prod --push --latest --dry-run   # what would be built, tagged and pushed
+gopro generate config -e prod --dry-run              # what would be cleared and written
+```
 
 ### Generate Dependencies Order
 

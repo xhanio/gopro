@@ -171,6 +171,7 @@ Image references resolve as `[prefix/]repo:tag`, where `prefix` falls back to
 | `-p, --push` | Push after building; skipped for images with `no_push: true` |
 | `-l, --latest` | Additionally tag and push `:latest`. Requires `--push` — alone it warns and does nothing |
 | `--cache` | Use the docker layer cache; without it builds pass `--no-cache` |
+| `--dry-run` | Print each `docker` command, one per line, instead of running it; also on `build binary` and every `generate` subcommand |
 
 `--latest` resolves the second reference through the same prefix/repo logic, and
 skips the extra push when the image already builds as `:latest`. This replaces
@@ -337,7 +338,7 @@ vars on the binary spec and let `env.{name}` vary only what changes.
 3. Scan source directory for files matching `files` patterns; an empty or absent `files` list processes everything. A file named `secret.env` is skipped either way
 4. For files with `template.` prefix: render as Go template, strip the prefix from the file name only — the subdirectory is part of the output path
 5. For other files: copy as-is
-6. Default layer renders first, then environment layer overlays
+6. Default layer renders first, then environment layer overlays; when the environment does not set its own source, the two are one directory and it renders once
 7. Templates use `[[` `]]` delimiters, receive `{Name, Project, EnvName, Env}` context
 
 A `files` pattern without a separator matches by base name at any depth, so
