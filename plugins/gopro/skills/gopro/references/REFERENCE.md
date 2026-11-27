@@ -50,7 +50,9 @@ component name that is not a single path element (empty, `.`, `..`, or holding
 `/` or `\`), since it names files and directories and generation clears the
 component's target; a name defined twice in one section or listed twice in one
 list; a `binaries`/`images`/`configs`/`kubernetes_templates` entry, in `default`
-or any `env`, that names nothing defined; and a `$name` base naming no image.
+or any `env`, that names nothing defined; a `$name` base naming no image; and
+a base listed after its image in one `images` list, since images build in list
+order.
 Defining a component without listing it is fine.
 
 ### Build Specification
@@ -334,20 +336,19 @@ vars on the binary spec and let `env.{name}` vary only what changes.
 ## Template Rendering Pipeline
 
 1. Resolve the target from `-o`/`-t`, then `*_tgt`, then `*_src` — an unset target renders the component in place, beside its templates
-2. Remove the component's target directory (config and Kubernetes only — not docker-compose), unless it overlaps a template source, which is the in-place case: clearing it would delete the templates about to be read, so existing files are left alone
-3. Scan source directory for files matching `files` patterns; an empty or absent `files` list processes everything. A file named `secret.env` is skipped either way
-4. For files with `template.` prefix: render as Go template, strip the prefix from the file name only — the subdirectory is part of the output path
-5. For other files: copy as-is
-6. Default layer renders first, then environment layer overlays; when the environment does not set its own source, the two are one directory and it renders once
-7. Templates use `[[` `]]` delimiters, receive `{Name, Project, EnvName, Env}` context
+2. Unless the render is in place, check the target can be cleared safely: its directory is not the project root, it overlaps no directory gopro reads sources from in any environment, and it holds no other component's output in the same environment. Any of these is an error, and nothing is cleared
+3. Render into memory: scan each layer for files matching `files` patterns (an empty or absent `files` list processes everything; a file named `secret.env` is skipped either way), render a `template.`-prefixed file as a Go template with the prefix stripped from its file name only — the subdirectory is part of the output path — and copy any other file as-is
+4. Default layer renders first, then the environment layer overlays it, replacing a file both give; when the environment does not set its own source, the two are one directory and it renders once. A listed component with no template directory in either layer is an error
+5. Only once everything rendered: clear the target (config and Kubernetes; not docker-compose, and not an in-place render) and write the output. A template that fails leaves the previous output untouched
+6. Templates use `[[` `]]` delimiters, receive `{Name, Project, EnvName, Env}` context
 
 A `files` pattern without a separator matches by base name at any depth, so
 `*.yaml` selects `sub/config.yaml` too. A pattern containing one is matched
 against the whole relative path, keeping `cert/*` scoped to `cert/`.
 
-Because step 2 clears the target, config and Kubernetes output reflects only
+Because step 5 clears the target, config and Kubernetes output reflects only
 current sources, except for an in-place render. `gopro generate docker-compose`
-differs in steps 1 and 2: it has no output flag, writes to `docker_compose_tgt`
+differs in steps 1, 2 and 5: it has no output flag, requires `docker_compose_src`, writes to `docker_compose_tgt`
 (or the working directory when unset), and never clears it, because that
 directory is shared rather than named after a component. Output of a renamed or
 removed template stays there until deleted by hand.

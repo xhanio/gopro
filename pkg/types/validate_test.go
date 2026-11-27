@@ -33,6 +33,10 @@ func TestValidateAcceptsAValidProject(t *testing.T) {
 	if err := p.Validate(); err != nil {
 		t.Fatalf("Validate() = %v", err)
 	}
+	p.Default.Images = []string{"api"} // a base built elsewhere is fine
+	if err := p.Validate(); err != nil {
+		t.Fatalf("Validate() with the base unlisted = %v", err)
+	}
 }
 
 // A component name becomes a path that generation clears with RemoveAll, so
@@ -54,6 +58,9 @@ func TestValidateRejects(t *testing.T) {
 		{"undefined in an env", func(p *Project) { p.Env["prod"] = EnvSpec{Configs: []string{"web"}} }, `env.prod.configs: "web" is not defined in generate.configs`},
 		{"listed twice", func(p *Project) { p.Default.KubernetesTemplates = []string{"api", "api"} }, `default.kubernetes_templates: "api" is listed twice`},
 		{"undefined base image", func(p *Project) { p.Build.Images[1].Base = "$bse" }, `build.images[1].base "$bse": "bse" is not defined in build.images`},
+		// The images build in list order, so a base listed later is not built yet.
+		{"base listed after its image", func(p *Project) { p.Default.Images = []string{"api", "base"} }, `default.images: "api" is listed before its base "base"`},
+		{"base listed after its image in an env", func(p *Project) { p.Env["prod"] = EnvSpec{Images: []string{"api", "base"}} }, `env.prod.images: "api" is listed before its base "base"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

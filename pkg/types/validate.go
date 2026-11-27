@@ -26,6 +26,7 @@ func (p *Project) Validate() error {
 	check := func(section string, spec EnvSpec) {
 		references(&errs, section+".binaries", spec.Binaries, "build.binaries", defined)
 		references(&errs, section+".images", spec.Images, "build.images", defined)
+		baseOrder(&errs, section+".images", spec.Images, p.Build.Images)
 		references(&errs, section+".configs", spec.Configs, "generate.configs", defined)
 		references(&errs, section+".kubernetes_templates", spec.KubernetesTemplates, "generate.kubernetes", defined)
 	}
@@ -65,4 +66,17 @@ func references(errs *[]error, list string, entries []string, definedIn string, 
 
 func isPathElement(name string) bool {
 	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, `/\`)
+}
+
+// Images build in list order, so a $base listed later is not built yet.
+func baseOrder(errs *[]error, list string, entries []string, images []ImageSpec) {
+	for i, name := range entries {
+		j := slices.IndexFunc(images, func(image ImageSpec) bool { return image.Name == name })
+		if j < 0 {
+			continue
+		}
+		if base, ok := strings.CutPrefix(images[j].Base, "$"); ok && slices.Contains(entries[i+1:], base) {
+			*errs = append(*errs, fmt.Errorf("%s: %q is listed before its base %q; images build in list order", list, name, base))
+		}
+	}
 }

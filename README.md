@@ -348,9 +348,12 @@ Additional flags:
 - `-o, --output <path>`: Specify custom output directory (defaults to `config_tgt`, then to `config_src` for an in-place render)
 - `-x, --prefix <prefix>`: Template file prefix (default: `template.`) — available on all `generate` subcommands
 
-Each config's target directory is removed before rendering, so generated output
-is a clean reflection of the sources — except for an in-place render, where the
-target is a template source and is left alone.
+Each config renders every template first; only when all have rendered is its
+target directory cleared and written, so generated output reflects only current
+sources, and a template that fails leaves the previous output as it was. An
+in-place render, where the target is a template source, is never cleared.
+Before clearing, gopro refuses — with an error, deleting nothing — when the clear would take with it what it did not generate: a target directory that is the project root (so `config_tgt: .`, or `-o .`, is rejected), a directory gopro reads sources from in any environment, or another component's output in the same environment.
+A listed config with no template directory in either layer is an error.
 
 #### Generate Kubernetes Manifests
 
@@ -363,8 +366,8 @@ gopro generate kubernetes -f "api.*"   # Generate specific manifests
 Additional flags:
 - `-t, --output <path>`: Specify custom output directory (defaults to `kubernetes_tgt`, then to `kubernetes_src` for an in-place render)
 
-As with configs, each template's target directory is removed before rendering,
-unless the render is in place.
+As with configs, each template renders before its target is cleared and
+written, under the same safety checks, unless the render is in place.
 
 #### Generate Docker Compose
 
@@ -424,9 +427,9 @@ therefore stays there until you delete it.
 
 - **In-place rendering**: With `config_tgt` (or `kubernetes_tgt`) unset, output
   lands beside the templates it came from — `template.config.yaml` renders to
-  `config.yaml` in the same directory. A distinct target is cleared before each
-  render; an in-place one is not, since its inputs and outputs share a
-  directory and clearing it would delete the templates
+  `config.yaml` in the same directory. A distinct target is cleared once every
+  template has rendered; an in-place one is not, since its inputs and outputs
+  share a directory and clearing it would delete the templates
 
 ### Dry Run
 
@@ -520,7 +523,7 @@ build:
     - name: base
       build_from: golang:1.21-alpine
     - name: api
-      base: $base  # References the "base" image
+      base: $base  # References the "base" image, so list base first in images
       build_src: docker/api
 ```
 

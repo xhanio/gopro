@@ -418,7 +418,7 @@ env:
     config_src: env/prod/config        # overrides for prod
 ```
 
-If you skip creating the environment directory, builds will succeed but `gopro generate` silently produces no output: a missing source directory is skipped, not reported.
+If you skip creating the environment directory, builds will succeed but `gopro generate` fails: a listed component with no template directory in either layer is an error (`... has no templates`).
 
 ## Directory Layout
 
@@ -470,7 +470,10 @@ matching field. See `references/REFERENCE.md` for where every value comes from.
 - **Env var set in `default` went missing**: An `env.<name>` override replaced the whole array. Restate every value it still needs
 - **Dockerfile not found**: Verify `build_src` or `image_build_src` paths contain a Dockerfile
 - **Empty version info**: Binary was built with `go build` instead of `gopro build binary`
-- **Generated output missing old files**: Expected when `config_tgt`/`kubernetes_tgt` names a directory of its own — it is wiped before each render so output reflects only current sources
+- **Generated output missing old files**: Expected when `config_tgt`/`kubernetes_tgt` names a directory of its own — once every template has rendered it is cleared and rewritten, so output reflects only current sources. A template that fails leaves the previous output untouched
+- **`clearing ... would ...`**: generation refused to clear a target that is at the project root, overlaps a source directory, or holds another component's output; nothing was deleted. Give each kind of output its own directory, such as `dist/config` and `dist/kubernetes`, outside every `*_src`
+- **`... has no templates`**: a listed config or Kubernetes template has no template directory in either layer of the selected environment
+- **`... is listed before its base ...`**: images build in list order; list a `$name` base before the image built on it
 - **Stale files persist instead**: The opposite case, an in-place render. With `config_tgt`/`kubernetes_tgt` unset the output goes beside the templates, so the target is *not* cleared — clearing it would delete the templates. Set a distinct target (e.g. `dist/`) for a clean render every time
 - **Stale docker-compose output**: `generate docker-compose` never clears `docker_compose_tgt`, a shared directory. Delete the output of a renamed or removed template by hand
 - **`unknown environment "x"`**: `-e` names an environment not declared under `env:`. Nothing falls back to `default`

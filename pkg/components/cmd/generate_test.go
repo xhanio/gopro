@@ -259,3 +259,115 @@ func TestGenerateOverlaysTheEnvLayer(t *testing.T) {
 		}
 	}
 }
+
+// Generation clears a component's target, so a target that would take with it
+// something gopro did not generate is refused, and the files stay.
+func TestGenerateRefusesAnUnsafeTarget(t *testing.T) {
+	tests := []struct {
+		name    string
+		project string
+		args    []string
+		keep    string // a file that must survive
+		wantErr string
+	}{
+		{
+			name: "target directory is the project root",
+			project: `default:
+  config_src: env/default/config
+  config_tgt: .
+  configs: [build]
+generate:
+  configs: [{name: build}]
+`,
+			args:    []string{"generate", "config"},
+			keep:    "build/binary/app/main.go",
+			wantErr: "project root",
+		},
+		{
+			name:    "-o puts it at the project root",
+			project: "default:\n  config_src: env/default/config\n  configs: [build]\ngenerate:\n  configs: [{name: build}]\n",
+			args:    []string{"generate", "config", "-o", "."},
+			keep:    "build/binary/app/main.go",
+			wantErr: "project root",
+		},
+		{
+			name: "target is another component's templates",
+			project: `default:
+  config_src: env/default/config
+  config_tgt: env/default/kubernetes
+  configs: [api]
+  kubernetes_src: env/default/kubernetes
+  kubernetes_templates: [api]
+generate:
+  configs: [{name: api}]
+  kubernetes: [{name: api}]
+`,
+			args:    []string{"generate", "config"},
+			keep:    "env/default/kubernetes/api/template.deployment.yaml",
+			wantErr: "env/default/kubernetes/api",
+		},
+		{
+			name: "target shared with another component's output",
+			project: `default:
+  config_src: env/default/config
+  config_tgt: dist
+  configs: [api]
+  kubernetes_src: env/default/kubernetes
+  kubernetes_tgt: dist
+  kubernetes_templates: [api]
+generate:
+  configs: [{name: api}]
+  kubernetes: [{name: api}]
+`,
+			args:    []string{"generate", "kubernetes"},
+			keep:    "dist/api/conf.yaml",
+			wantErr: "dist/api",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			writeTree(t, ".", "project.yaml", "product: demo\nmodule: x.test/demo\nbuild:\n  binaries: [{name: app}]\n"+tt.project)
+			writeTree(t, ".", "build/binary/app/main.go", "package main\n")
+			writeTree(t, ".", "env/default/config/api/template.conf.yaml", "a: 1\n")
+			writeTree(t, ".", "env/default/config/build/template.conf.yaml", "a: 1\n")
+			writeTree(t, ".", "env/default/kubernetes/api/template.deployment.yaml", "kind: Deployment\n")
+			writeTree(t, ".", "dist/api/conf.yaml", "a: 1\n")
+			for _, dry := range []bool{true, false} {
+				args := tt.args
+				if dry {
+					args = append(slices.Clone(args), "--dry-run")
+				}
+				var err error
+				captureStdout(t, func() { _, err = runRoot(t, args...) })
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("gopro %s: error = %v, want one naming %s", strings.Join(args, " "), err, tt.wantErr)
+				}
+				if _, statErr := os.Stat(tt.keep); statErr != nil {
+					t.Fatalf("gopro %s deleted %s", strings.Join(args, " "), tt.keep)
+				}
+			}
+		})
+	}
+}
+
+// A listed component without a template directory in either layer used to
+// generate nothing and succeed.
+func TestGenerateRequiresTemplates(t *testing.T) {
+	for _, tt := range []struct{ name, project, cmd, wantErr string }{
+		{"config", "default:\n  config_src: env/default/config\n  config_tgt: dist\n  configs: [api]\ngenerate:\n  configs: [{name: api}]\n", "config", "env/default/config/api"},
+		{"kubernetes", "default:\n  kubernetes_src: env/default/kubernetes\n  kubernetes_tgt: dist\n  kubernetes_templates: [api]\ngenerate:\n  kubernetes: [{name: api}]\n", "kubernetes", "env/default/kubernetes/api"},
+		{"docker-compose without a source", "default:\n  docker_compose_tgt: dist\n", "docker-compose", "docker_compose_src"},
+		{"docker-compose source missing", "default:\n  docker_compose_src: env/default/docker-compose\n", "docker-compose", "env/default/docker-compose"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			writeTree(t, ".", "project.yaml", "product: demo\nmodule: x.test/demo\n"+tt.project)
+			var err error
+			captureStdout(t, func() { _, err = runRoot(t, "generate", tt.cmd) })
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error = %v, want one naming %s", err, tt.wantErr)
+			}
+		})
+	}
+}

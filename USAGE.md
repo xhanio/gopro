@@ -497,6 +497,11 @@ build:
       build_src: docker/api
 ```
 
+Images build in the order an environment's `images` lists them, so when both
+are listed, the base must come first: `images: [base, api]`. Listing `api`
+before `base` is an error. A base not listed at all is used as it already
+exists.
+
 #### Image Naming Convention
 
 Final image name format: `[prefix/]repo:tag`
@@ -605,11 +610,13 @@ gopro generate config -x "tmpl."
 
 #### How It Works
 
-1. **Clean Target**: The config's target directory is removed before rendering,
-   so output is a clean reflection of the sources rather than a mix with files
-   left over from a previous run. The exception is an in-place render, where
-   the target overlaps a template source — there the directory is left alone,
-   because clearing it would delete the templates about to be read
+1. **Render, then write**: Both layers render first, into memory. Only when
+   every template has rendered is the target directory cleared and the output
+   written, so output is a clean reflection of the sources, and a template
+   that fails leaves the previous output exactly as it was. An in-place render,
+   where the target overlaps a template source, is never cleared, because
+   clearing it would delete the templates. Before clearing a target, gopro refuses — with an error, deleting nothing — when the clear would take with it what it did not generate: a target directory that is the project root (so `config_tgt: .`, or `-o .`, is rejected), a directory gopro reads sources from in any environment, or another component's output in the same environment. A listed config with
+   no template directory in either layer is an error rather than nothing
 
 2. **Two-Layer Rendering**:
    - First: Renders default templates from `default.config_src/config_name/`
@@ -695,9 +702,9 @@ gopro generate kubernetes -t ./k8s-manifests
 gopro generate kubernetes -f "^api$"
 ```
 
-As with configs, each template's target directory is removed before rendering
-(except for an in-place render), and the default layer renders first with the
-environment layer overlaid on top.
+As with configs, every template renders before the target is cleared and
+written, under the same safety checks (except for an in-place render), and the
+default layer renders first with the environment layer overlaid on top.
 
 #### Configuration Example
 
@@ -855,7 +862,9 @@ and reports every problem at once:
 - A name may be defined only once per section, and listed only once per list.
 - A listed name must be defined. Defining one without listing it is fine: the
   component is just not acted on in that environment.
-- An image `base` of the form `$name` must name an image in `build.images`.
+- An image `base` of the form `$name` must name an image in `build.images`,
+  and when both are in one `images` list, the base must be listed first: images
+  build in list order.
 
 ```
 Error: project.yaml is invalid:
@@ -1704,6 +1713,22 @@ output persists alongside the templates.
 `gopro generate docker-compose` never clears its target, whatever the layout: it
 renders into a shared directory, so output of a renamed or removed template
 stays until you delete it.
+
+#### 8a. Generation Refuses to Clear a Target
+
+```
+Error: config build: clearing build would clear a directory of the project root; give its output a directory of its own, such as dist/
+Error: config api: clearing env/default/kubernetes/api would delete env/default/kubernetes/api, which gopro reads sources from
+Error: kubernetes template api: clearing dist/api would delete the output of config api in dist/api
+```
+
+Clearing that target would delete files gopro did not generate there, so
+nothing is cleared or written. Give each kind of output a directory of its own,
+such as `dist/config` and `dist/kubernetes`, outside every `*_src`.
+
+A `has no templates` error means a listed component has no template directory
+in either layer of the selected environment; create one, or drop the name from
+that environment's list.
 
 #### 9. Module Path Not Found
 
