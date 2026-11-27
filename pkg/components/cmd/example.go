@@ -33,7 +33,7 @@ func runExample(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(target); err == nil {
 		return fmt.Errorf("project.yaml already exists in %s", wd)
 	}
-	if err := os.WriteFile(target, types.ExampleProjectYAML, 0644); err != nil {
+	if err := os.WriteFile(target, withSchemaURL(types.ExampleProjectYAML), 0644); err != nil {
 		return err
 	}
 	linef("example project.yaml saved to %s", target)

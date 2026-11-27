@@ -1,5 +1,8 @@
 # GoPro Configuration Reference
 
+`gopro schema` prints the JSON Schema of the installed gopro; where it and
+this reference disagree, the schema is right.
+
 ## project.yaml Complete Field Reference
 
 ### Top-Level Fields

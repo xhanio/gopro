@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GoPro project.yaml",
+  "description": "Configuration for the gopro build tool. Print the schema for the installed gopro with `gopro schema`. Cross-references (a listed name that nothing defines, a $name base) are checked by gopro itself when it loads the file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["product"],
+  "properties": {
+    "product": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Product name; also the prefix GetEnvKey gives environment variable names."
+    },
+    "model": { "$ref": "#/$defs/string", "description": "Product model, injected as info.ProductModel." },
+    "version": { "$ref": "#/$defs/string", "description": "Product version; falls back to the Git tag." },
+    "domain": { "$ref": "#/$defs/string", "description": "Domain name." },
+    "module": { "$ref": "#/$defs/string", "description": "Go module path; read from the go.mod beside project.yaml when unset. gopro init needs one of the two." },
+    "default": { "$ref": "#/$defs/env", "description": "Settings every environment starts from." },
+    "env": {
+      "type": ["object", "null"],
+      "description": "Named environments, selected with -e. Each is merged over default per key; a list it sets replaces default's whole.",
+      "additionalProperties": { "$ref": "#/$defs/env" }
+    },
+    "build": { "$ref": "#/$defs/build" },
+    "generate": { "$ref": "#/$defs/generate" }
+  },
+  "$defs": {
+    "string": { "type": ["string", "null"] },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\]+$",
+      "not": { "enum": [".", ".."] },
+      "description": "Component name: a single path element, since it names files and directories."
+    },
+    "names": {
+      "type": ["array", "null"],
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/name" }
+    },
+    "envVars": {
+      "type": ["array", "null"],
+      "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*=" },
+      "description": "Environment variables as KEY=value."
+    },
+    "args": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "files": {
+      "type": ["array", "null"],
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Glob patterns of the files to process; unset processes every file. A pattern without / matches by base name at any depth. A file named secret.env is never written to output."
+    },
+    "env": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "config_src": { "$ref": "#/$defs/string", "description": "Config template source directory." },
+        "config_tgt": { "$ref": "#/$defs/string", "description": "Config output directory; unset renders in place, beside the templates." },
+        "configs": { "$ref": "#/$defs/names", "description": "Configs to generate, by name from generate.configs." },
+        "binary_src": { "$ref": "#/$defs/string", "description": "Parent directory of binary sources; a binary builds from binary_src/<name> unless it sets src." },
+        "binary_tgt": { "$ref": "#/$defs/string", "description": "Output directory for binaries; unset is the working directory." },
+        "binaries": { "$ref": "#/$defs/names", "description": "Binaries to build, by name from build.binaries." },
+        "binary_build_env": { "$ref": "#/$defs/envVars", "description": "Environment for go build, as KEY=value. A binary's build_env and a platform's env merge over it key-wise." },
+        "binary_build_args": { "$ref": "#/$defs/args", "description": "go build flags. A binary's build_args or a platform's args replace them whole. -o, -X on framingo's info package and positionals are reserved." },
+        "image_build_src": { "$ref": "#/$defs/string", "description": "Parent directory of Dockerfiles; an image builds from image_build_src/<name>/Dockerfile unless it sets build_src." },
+        "images": { "$ref": "#/$defs/names", "description": "Images to build, by name from build.images." },
+        "image_prefix": { "$ref": "#/$defs/string", "description": "Registry prefix for image references, unless an image sets its own prefix." },
+        "image_tag": { "$ref": "#/$defs/string", "description": "Image tag, unless an image sets its own; defaults to latest." },
+        "image_build_env": { "$ref": "#/$defs/envVars", "description": "Environment for docker build and docker tag, as KEY=value." },
+        "image_build_args": { "$ref": "#/$defs/args", "description": "Extra docker build flags. -t, -f and the NAME, BASE, CONFIG_TGT and CONFIG_DIR build args are reserved." },
+        "kubernetes_src": { "$ref": "#/$defs/string", "description": "Kubernetes template source directory." },
+        "kubernetes_tgt": { "$ref": "#/$defs/string", "description": "Kubernetes output directory; unset renders in place." },
+        "kubernetes_templates": { "$ref": "#/$defs/names", "description": "Kubernetes templates to generate, by name from generate.kubernetes." },
+        "docker_compose_src": { "$ref": "#/$defs/string", "description": "Docker Compose template source directory." },
+        "docker_compose_tgt": { "$ref": "#/$defs/string", "description": "Docker Compose output directory; unset is the working directory. Never cleared before rendering." }
+      }
+    },
+    "build": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "binaries": {
+          "type": ["array", "null"],
+          "description": "Binary definitions; an environment builds those its binaries list names.",
+          "items": { "$ref": "#/$defs/binary" }
+        },
+        "images": {
+          "type": ["array", "null"],
+          "description": "Image definitions; an environment builds those its images list names.",
+          "items": { "$ref": "#/$defs/image" }
+        }
+      }
+    },
+    "binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "version": { "$ref": "#/$defs/string", "description": "The application's own version, injected as info.ApplicationVersion; defaults to the product version." },
+        "src": { "$ref": "#/$defs/string", "description": "Source path, instead of binary_src/<name>." },
+        "platform": {
+          "type": ["array", "null"],
+          "deprecated": true,
+          "description": "Deprecated: use platforms. Targets as GOOS/GOARCH.",
+          "items": { "$ref": "#/$defs/platformName" }
+        },
+        "platforms": {
+          "type": ["array", "null"],
+          "description": "Cross-compile targets, each built as <name>_<GOOS>_<GOARCH> in addition to the host binary.",
+          "items": { "$ref": "#/$defs/platform" }
+        },
+        "build_env": { "$ref": "#/$defs/envVars", "description": "Environment for this binary, merged over binary_build_env key-wise." },
+        "build_args": { "$ref": "#/$defs/args", "description": "go build flags for this binary, replacing binary_build_args whole; an explicit [] builds with none." },
+        "config_dir": { "$ref": "#/$defs/string", "description": "The binary's config directory, as GetConfigDir and the CONFIG_DIR build arg give it." }
+      }
+    },
+    "platformName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+/[a-z0-9]+$",
+      "description": "Target as GOOS/GOARCH, such as linux/arm64."
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/platformName" },
+        "env": { "$ref": "#/$defs/envVars", "description": "Environment for this target only, merged over build_env key-wise." },
+        "args": { "$ref": "#/$defs/args", "description": "go build flags for this target only, replacing build_args whole." }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "base": { "$ref": "#/$defs/string", "description": "Base image, passed as the BASE build arg; $<name> refers to another image in build.images." },
+        "build_src": { "$ref": "#/$defs/string", "description": "Directory holding the Dockerfile, instead of image_build_src/<name>." },
+        "build_from": { "$ref": "#/$defs/string", "description": "Pull and retag this existing image instead of building a Dockerfile." },
+        "prefix": { "$ref": "#/$defs/string", "description": "Registry prefix, instead of image_prefix." },
+        "repo": { "$ref": "#/$defs/string", "description": "Repository name, instead of the image name." },
+        "tag": { "$ref": "#/$defs/string", "description": "Tag, instead of image_tag." },
+        "no_push": { "type": ["boolean", "null"], "description": "Skip pushing this image under --push." }
+      }
+    },
+    "generate": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "configs": {
+          "type": ["array", "null"],
+          "description": "Config definitions; an environment generates those its configs list names.",
+          "items": { "$ref": "#/$defs/component" }
+        },
+        "kubernetes": {
+          "type": ["array", "null"],
+          "description": "Kubernetes template definitions; an environment generates those its kubernetes_templates list names.",
+          "items": { "$ref": "#/$defs/component" }
+        },
+        "docker_compose": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "files": { "$ref": "#/$defs/files" }
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "files": { "$ref": "#/$defs/files" }
+      }
+    }
+  }
+}

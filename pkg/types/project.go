@@ -15,6 +15,9 @@ import (
 // ExampleProjectYAML holds the embedded example project.yaml, injected from main.
 var ExampleProjectYAML []byte
 
+// ProjectSchemaJSON holds the embedded project.yaml JSON Schema, injected from main.
+var ProjectSchemaJSON []byte
+
 type ResourceType string
 
 var (

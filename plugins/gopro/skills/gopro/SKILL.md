@@ -17,6 +17,7 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 | Task | Command |
 |------|---------|
 | Generate example config | `gopro example` |
+| Print the project.yaml JSON Schema | `gopro schema` |
 | Initialize project | `gopro init` |
 | Build binaries | `gopro build binary -e <env>` |
 | Build Docker images | `gopro build image -e <env> --push` |
@@ -42,6 +43,13 @@ GoPro manages multi-environment Go projects through a single `project.yaml` conf
 - `gopro generate docker-compose`: no output flag; writes to `docker_compose_tgt`, which is never cleared first
 
 ## Configuration Structure
+
+**Before writing or editing `project.yaml`, run `gopro schema`.** It prints the
+JSON Schema of the installed gopro, the authority on which fields exist; the
+structure below is an overview. Validate what you write against it: the schema
+catches unknown fields, malformed names and formats, and gopro itself rejects
+a listed name that nothing defines when it loads the file. Keep the
+`# yaml-language-server: $schema=...` first line `gopro example` writes.
 
 The `project.yaml` file has four main sections:
 

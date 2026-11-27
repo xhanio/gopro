@@ -95,6 +95,38 @@ needed must be restated. This is deliberately unlike the per-binary and
 per-platform build layers described under
 [Build Binaries](#build-binaries), which merge environment variables key-wise.
 
+### Editor Completion
+
+`project.yaml` has a JSON Schema, which VS Code (with the YAML extension),
+JetBrains IDEs and AI agents use for completion and checking. `gopro schema`
+prints the schema of the installed gopro, and the file `gopro example` writes
+starts with the line that points editors at it:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xhanio/gopro/<version>/project.schema.json
+```
+
+The schema line `gopro example` writes points at the installed version's
+schema on GitHub: its own tag for a release, `main` for a local build. For an
+editor without network access, or to pin the schema to the project, save it
+beside `project.yaml` and point the line there instead:
+
+```bash
+gopro schema > project.schema.json
+```
+
+```yaml
+# yaml-language-server: $schema=./project.schema.json
+```
+
+Either way the line does not follow a gopro upgrade: update the tag in the URL,
+or rerun `gopro schema`, so that fields the new version added are not reported
+as unknown.
+
+The schema checks field names, types and formats as you type; whether a listed
+component is defined, and whether a `$name` base exists, gopro checks when it
+loads the file.
+
 ### Configuration Structure
 
 Run `gopro example` to generate a complete example, or see the embedded
@@ -201,6 +233,7 @@ All commands support these global flags:
 
 ```bash
 gopro example                          # Write an example project.yaml to the current directory
+gopro schema                           # Print the JSON Schema of project.yaml for this gopro
 gopro init                             # Create project directories, git repo, go module, .gitignore
 gopro init -e prod                     # Directories for default plus prod only
 gopro version                          # Print gopro's own version and build time
@@ -485,6 +518,7 @@ The project follows a modular CLI architecture using Cobra:
   - `build.go`: Binary and image build commands
   - `generate.go`: Config, Kubernetes, and Docker Compose generation commands
   - `example.go`: Example configuration file generation command (uses `example.project.yaml` from project root via `types.ExampleProjectYAML`)
+  - `schema.go`: Prints `project.schema.json` from project root, embedded via `types.ProjectSchemaJSON`
   - `version.go`: Version information command
   - `util_config.go`: Project/environment loading and shared state
   - `util_buildargs.go`: Assembly of the `go build` arguments

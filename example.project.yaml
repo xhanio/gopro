@@ -1,4 +1,5 @@
-# format: github.com/xhanio/gopro/pkg/types/project.go
+# yaml-language-server: $schema=./project.schema.json
+# The fields are those of `gopro schema`, the JSON Schema of the installed gopro.
 
 product: example # required
 # model:

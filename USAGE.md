@@ -9,6 +9,7 @@ This guide provides detailed instructions on using GoPro, a Go-based project gen
 - [Global Flags](#global-flags)
 - [Commands](#commands)
   - [example](#example-command)
+  - [schema](#schema-command)
   - [init](#init-command)
   - [version](#version-command)
   - [build binary](#build-binary-command)
@@ -101,7 +102,7 @@ These flags are available for all commands:
 | `--verbose` | `-v` | `false` | Enable verbose output for debugging |
 | `--help` | `-h` | `false` | Show help information |
 
-The `example` and `version` commands do not load `project.yaml`, so they work in
+The `example`, `schema` and `version` commands do not load `project.yaml`, so they work in
 a directory that has no configuration yet.
 
 ### Examples
@@ -134,6 +135,53 @@ gopro example
 ```
 
 This saves a complete example configuration file that you can use as a starting point. The command will fail if a `project.yaml` already exists to prevent overwriting your configuration.
+
+Its first line points editors at the JSON Schema of the gopro that wrote it;
+see [schema](#schema-command).
+
+### schema Command
+
+Print the JSON Schema of `project.yaml` for the installed gopro.
+
+```bash
+gopro schema > project.schema.json
+```
+
+The schema is embedded in the binary, so it always describes the gopro that
+prints it, needs no network, and needs no `project.yaml`. Editors use it for
+completion and checking through a comment in `project.yaml`, which `gopro
+example` writes as the first line:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xhanio/gopro/<version>/project.schema.json
+```
+
+The schema line `gopro example` writes points at the installed version's
+schema on GitHub: its own tag for a release, `main` for a local build. For an
+editor without network access, or to pin the schema to the project, save it
+beside `project.yaml` and point the line there instead:
+
+```bash
+gopro schema > project.schema.json
+```
+
+```yaml
+# yaml-language-server: $schema=./project.schema.json
+```
+
+Either way the line does not follow a gopro upgrade: update the tag in the URL,
+or rerun `gopro schema`, so that fields the new version added are not reported
+as unknown.
+
+VS Code reads the line with the Red Hat YAML extension; JetBrains IDEs read it
+too, or map the schema to `project.yaml` under *Settings → Languages &
+Frameworks → Schemas and DTDs → JSON Schema Mappings*.
+
+The schema covers field names, types and formats: unknown fields, a component
+name that is not a single path element, a platform that is not `GOOS/GOARCH`,
+an environment variable without `=`. Whether each listed name is defined, and
+whether a `$name` base exists, it cannot express; gopro checks those when it
+loads the file (see [Component Names](#component-names)).
 
 ### init Command
 

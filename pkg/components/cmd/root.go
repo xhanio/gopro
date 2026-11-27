@@ -102,6 +102,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(NewBuildCmd())
 	root.AddCommand(NewGenerateCmd())
 	root.AddCommand(NewExampleCmd())
+	root.AddCommand(NewSchemaCmd())
 	root.AddCommand(NewVersionCmd())
 	return root
 }

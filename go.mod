@@ -7,12 +7,14 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/moby/patternmatcher v0.6.0
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.1
 	github.com/tidwall/gjson v1.14.4
 	github.com/xhanio/errors v1.0.3
 	github.com/xhanio/framingo v0.6.10
 	go.uber.org/config v1.4.0
 	golang.org/x/mod v0.28.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
